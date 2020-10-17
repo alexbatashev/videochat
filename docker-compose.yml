@@ -1,0 +1,40 @@
+version: "3.2"
+services:
+  rest:
+    build: rest_server
+    ports:
+      - "3000:3000"
+    links:
+      - tarantool
+      - mongo
+      - rabbitmq
+      - prometheus
+  sfu:
+    build: sfu_server
+    links:
+      - rabbitmq
+      - prometheus
+  tarantool:
+    image: "tarantool/tarantool"
+    environment:
+      TARANTOOL_USER_NAME: "tarantool"
+      TARANTOOL_USER_PASSWORD: "tarantoolpwd"
+  mongo:
+    image: "mongo"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: secret
+  rabbitmq:
+    image: "rabbitmq"
+  prometheus:
+    image: "bitnami/prometheus"
+  grafana:
+    image: "grafana/grafana"
+    ports:
+      - "3005:3000"
+  nginx:
+    image: "nginx"
+    ports:
+      - "80:80"
+    volumes:
+      - ./front:/usr/share/nginx/html
