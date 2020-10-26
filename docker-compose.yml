@@ -16,6 +16,9 @@ services:
       - prometheus
   tarantool:
     image: "tarantool/tarantool"
+    command: tarantool /usr/local/share/tarantool/tarantool_init.lua
+    volumes:
+      - ./configs/tarantool_init.lua:/usr/local/share/tarantool/tarantool_init.lua
     environment:
       TARANTOOL_USER_NAME: "tarantool"
       TARANTOOL_USER_PASSWORD: "tarantoolpwd"
