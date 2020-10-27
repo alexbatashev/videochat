@@ -142,12 +142,6 @@ func main() {
 			} else {
 				log.Printf("Acknowledged message")
 			}
-			// TODO acknowledge message
-			if err := d.Ack(false); err != nil {
-				log.Printf("Error acknowledging message : %s", err)
-			} else {
-				log.Printf("Acknowledged message")
-			}
 		}
 	}()
 

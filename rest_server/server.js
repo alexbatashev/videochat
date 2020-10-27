@@ -146,14 +146,15 @@ async function createSocketConn() {
       console.log("Handshake");
       console.log(data);
       try {
+        console.log("Creating channel")
         ch = await rabbitMQ.createChannel();
         await ch.assertQueue("sfu", {
           "durable": false
         });
+        console.log("Created channel connection");
       } catch (err) {
         console.log(err);
       }
-      console.log("Created channel connection");
     });
     socket.on("join_room", async (msg) => {
       console.log("A peer is trying to join room");
