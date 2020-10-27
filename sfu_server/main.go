@@ -36,7 +36,7 @@ type Message struct {
 func main() {
 	// init()
 
-	conn, err := amqp.Dial("amqp://guest:guest@rabbitmq:5672/")
+	conn, err := amqp.Dial("amqp://rabbitmq/")
 	failOnError(err, "Failed to connect to rabbitmq")
 	defer conn.Close()
 

@@ -22,7 +22,7 @@ var coldDBConnection;
 var socketConn;
 var io;
 
-var rabbitMq = amqp.createConnection({ host: 'rabbitmq' })
+var rabbitMQ;
 
 var hotDBConnection = new Tarantool({
   host: "tarantool",
@@ -32,24 +32,48 @@ var hotDBConnection = new Tarantool({
 });
 
 async function run() {
+  await createRabbitMQConnection();
   await createMongoConnection();
   await createExpressApp();
   await createHTTPServer();
+  await createSocketConn();
 }
 
 async function createExpressApp() {
   expressApp = express();
 
-  expressApp.use(bodyParser.json());
+  expressApp.use(bodyParser.urlencoded({ extended: false }));
+
+  expressApp.use(function (req, res, next) {
+
+    // Website you wish to allow to connect
+    res.setHeader('Access-Control-Allow-Origin', '*');
+
+    // Request methods you wish to allow
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
+
+    // Request headers you wish to allow
+    res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type');
+
+    // Set to true if you need the website to include cookies in the requests sent
+    // to the API (e.g. in case you use sessions)
+    res.setHeader('Access-Control-Allow-Credentials', true);
+
+    // Pass to next layer of middleware
+    next();
+});
 
   // TODO verify room id matches existing room
 
   expressApp.post('/user/create', async (req, res, next) => {
     const id = uuidv4();
-    await hotDBConnection.insert('users', {
-      "id": id,
-      "name": req.body.name
-    });
+    console.log(id);
+    console.log(req.body.name);
+    console.log(req.body);
+    await hotDBConnection.insert('users', [
+      id,
+      req.body.name
+    ]);
 
     res.status(200).json({
       "id": id
@@ -58,20 +82,23 @@ async function createExpressApp() {
 
   expressApp.post('/rooms/create', async (req, res, next) => {
     const id = uuidv4();
-    await hotDBConnection.insert('rooms', {
-      "id": id,
-      "participants": [req.body.uid]
-    });
+    await hotDBConnection.insert('rooms', [id, []]);
+    var ch = await rabbitMQ.createChannel();
+    await ch.assertQueue("sfu");
+    var msg = {
+      "cammand": "create_room",
+      "roomId": id,
+      "peerId": "",
+      "data": ""
+    };
+    await ch.sendToQueue("sfu", Buffer.from(JSON.stringify(msg)));
     res.status(200).json({
       "id": id
     });
   });
 
+  /*
   expressApp.post('/rooms/:roomId/join', async (req, res, next) => {
-    var room = await hotDBConnection.select("rooms", "primary", 1, 0, 'eq', [req.params.roomId]);
-    room[0][1].push(req.body.uid);
-    await hotDBConnection.update("rooms", "primary", [req.params.roomId], [["=", 1, room[0][1]]]);
-    res.status(200).json({});
   });
 
   expressApp.delete('/rooms/:roomId/leave', async (req, res, next) => {
@@ -81,6 +108,7 @@ async function createExpressApp() {
     await hotDBConnection.update("rooms", "primary", [req.params.roomId], [["=", 1, room[0][1]]]);
     res.status(200).json({});
   });
+  */
 }
 
 async function createHTTPServer() {
@@ -96,17 +124,26 @@ async function createMongoConnection() {
   });
 }
 
+async function createRabbitMQConnection() {
+  rabbitMQ = await amqp.connect('amqp://rabbitmq');
+}
+
 async function createSocketConn() {
   io = socketIO.listen(expressApp);
-  rabbitMq.on('ready', function () {
-    io.sockets.on('connection', function (socket) {
-       var queue = rabbitMq.queue('my-queue');
- 
-       queue.bind('#'); // all messages
- 
-       queue.subscribe(function (message) {
-          socket.emit('message-name', message);
-       });
+  io.sockets.on('connection', function (socket) {
+    var ch = await rabbitMQ.createChannel();
+    await ch.assertQueue("sfu");
+    var uid;
+    socket.on("join_room", (msg) => {
+      var data = JSON.parse(msg);
+      var room = await hotDBConnection.select("rooms", "primary", 1, 0, 'eq', [data.roomId]);
+      room[0][1].push(data.uid);
+      uid = data.uid;
+      await hotDBConnection.update("rooms", "primary", [data.roomId], [["=", 1, room[0][1]]]);
     });
- });
+
+    socket.on("leave_room", (msg) => {
+      
+    });
+  });
 }
