@@ -1,14 +1,28 @@
 package main
 
 import (
-	"log"
 	"encoding/json"
+	"log"
+	"sync"
 
 	"github.com/pion/webrtc/v2"
 	"github.com/streadway/amqp"
 )
 
-func init() {
+type Peer struct {
+	id             string
+	connection     *webrtc.PeerConnection
+	videoTrackLock sync.RWMutex
+	audioTrackLock sync.RWMutex
+	videoTrack     *webrtc.Track
+	audioTrack     *webrtc.Track
+}
+type Room struct {
+	peers     map[string]*Peer
+	peersLock sync.RWMutex
+}
+
+func initAll() {
 	// Create a MediaEngine object to configure the supported codec
 	m = webrtc.MediaEngine{}
 
@@ -18,46 +32,54 @@ func init() {
 
 	// Create the API object with the MediaEngine
 	api = webrtc.NewAPI(webrtc.WithMediaEngine(m))
+
+	rooms = make(map[string]*Room)
 }
 
 func failOnError(err error, msg string) {
-  if err != nil {
-    log.Fatalf("%s: %s", msg, err)
-  }
+	if err != nil {
+		log.Fatalf("%s: %s", msg, err)
+	}
 }
 
 type Message struct {
-	command string
-	roomId string
-	peerId string
-	data string
+	Command string
+	RoomId  string
+	PeerId  string
+	Data    string
+}
+
+type PeerMsg struct {
+	Command string
+	PeerId  string
+	Data    string
 }
 
 func main() {
-	// init()
+	initAll()
 
-	conn, err := amqp.Dial("amqp://rabbitmq/")
+	conn, err := amqp.Dial("amqp://guest:guest@rabbitmq/")
 	failOnError(err, "Failed to connect to rabbitmq")
 	defer conn.Close()
 
 	ch, err := conn.Channel()
-  failOnError(err, "Failed to open a channel")
-  defer ch.Close()
+	failOnError(err, "Failed to open a channel")
+	defer ch.Close()
 
 	q, err := ch.QueueDeclare(
 		"sfu", // name
-		false,   // durable
-		false,   // delete when unused
-		false,   // exclusive
-		false,   // no-wait
-		nil,     // arguments
+		false, // durable
+		false, // delete when unused
+		false, // exclusive
+		false, // no-wait
+		nil,   // arguments
 	)
 	failOnError(err, "Failed to declare a queue")
 
 	msgs, err := ch.Consume(
 		q.Name, // queue
 		"",     // consumer
-		true,   // auto-ack
+		false,  // auto-ack
 		false,  // exclusive
 		false,  // no-local
 		false,  // no-wait
@@ -67,34 +89,68 @@ func main() {
 
 	forever := make(chan bool)
 
-go func() {
-  for d := range msgs {
-		log.Printf("Received a message: %s", d.Body)
-		command := &Message{}
-		err := json.Unmarshal(d.Body, command)
+	go func() {
+		for d := range msgs {
+			log.Printf("Received a message: %s", d.Body)
+			command := &Message{}
+			err := json.Unmarshal(d.Body, command)
 
-		if err != nil {
-			log.Printf("Error decoding JSON: %s", err)
+			if err != nil {
+				log.Printf("Error decoding JSON: %s", err)
+			}
+
+			log.Printf("Command is %s", command.Command)
+
+			if command.Command == "create_room" {
+				log.Println("Creating new room")
+				createRoom(command.RoomId)
+			}
+
+			if command.Command == "add_peer" {
+				log.Println("Adding peer")
+				peerChannel, err := conn.Channel()
+				if err != nil {
+					panic(err)
+				}
+				peerQueue, err := peerChannel.QueueDeclare(
+					command.PeerId, // name
+					false,          // durable
+					false,          // delete when unused
+					false,          // exclusive
+					false,          // no-wait
+					nil,            // arguments
+				)
+				offer := addPeer(command.RoomId, command.PeerId, command.Data)
+				err = peerChannel.Publish(
+					"", // exchange
+					peerQueue.Name,
+					true, // mandatory
+					true, // immediate
+					amqp.Publishing{
+						ContentType: "text/plain",
+						Body:        []byte(offer),
+					},
+				)
+				if err != nil {
+					panic(err)
+				}
+			}
+
+			// TODO acknowledge message
+			if err := d.Ack(false); err != nil {
+				log.Printf("Error acknowledging message : %s", err)
+			} else {
+				log.Printf("Acknowledged message")
+			}
+			// TODO acknowledge message
+			if err := d.Ack(false); err != nil {
+				log.Printf("Error acknowledging message : %s", err)
+			} else {
+				log.Printf("Acknowledged message")
+			}
 		}
+	}()
 
-		// TODO acknowledge message
-		if err := d.Ack(false); err != nil {
-			log.Printf("Error acknowledging message : %s", err)
-		} else {
-			log.Printf("Acknowledged message")
-		}
-
-
-		if command.command == "create_room" {
-			createRoom(command.roomId)
-		}
-
-		if command.command == "add_peer" {
-			_ = addPeer(command.roomId, command.peerId, command.data)
-		}
-  }
-}()
-
-log.Printf(" [*] Waiting for messages. To exit press CTRL+C")
-<-forever
+	log.Printf(" [*] Waiting for messages. To exit press CTRL+C")
+	<-forever
 }

@@ -1,0 +1,3 @@
+FROM tarantool/tarantool
+
+COPY configs/tarantool_init.lua /usr/local/share/tarantool/tarantool_init.lua

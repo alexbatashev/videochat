@@ -1,0 +1,160 @@
+<html>
+
+<head>
+  <title>Video Chat</title>
+</head>
+
+<body>
+  <p>
+    <input type="text" id="name" placeholder="Name" />
+    <button id="set_name_btn">Set name</button>
+  </p>
+  <p>
+    <input type="text" id="cid" placeholder="Coference ID" />
+    <button id="new_room_btn">New conference</button>
+    <button id="connect_btn">Connect</button>
+  </p>
+  <div id="remoteVideos"></div> <br />
+
+
+  <script src="socket.io.dev.js"></script>
+  <script>
+    var clientId;
+    var roomId;
+    var offer = null;
+
+    let base_url = "http://localhost:3000";
+    let ws_url = "ws://localhost:3000/";
+
+    function log(msg) {
+      console.log(msg);
+    }
+
+    async function joinRoom() {
+      const socket = io(ws_url, {
+        transports: ['websocket']
+      });
+      socket.on("connect", async () => {
+        console.log("Socket connected");
+        await socket.emit("handshake", JSON.stringify(
+          {
+            "roomId": roomId,
+            "uid": clientId
+          }
+        ));
+
+        let pc = new RTCPeerConnection({
+          iceServers: [
+            {
+              urls: 'stun:stun.l.google.com:19302'
+            },
+            //{
+            //  urls: 'turn:localhost:3478' /*,
+            //  username: "guest",
+            //  credential: "guest"*/ 
+            // },
+            {
+              urls: "turn:turn.anyfirewall.com:443?transport=tcp",
+              username: "webrtc",
+              credential: "webrtc"
+            }
+          ]
+        });
+
+        pc.oniceconnectionstatechange = e => log(pc.iceConnectionState)
+
+        pc.onnegotiationneeded = async () => {
+          console.log("Negotioation needed");
+          try {
+            await pc.setLocalDescription(await pc.createOffer());
+            let offer = btoa(JSON.stringify(pc.localDescription));
+            console.log("Local offer");
+            console.log(offer);
+            await socket.emit('join_room', JSON.stringify({
+              "roomId": roomId,
+              "uid": clientId,
+              "offer": offer
+            }));
+            console.log("Sent offer");
+          } catch (err) {
+            console.log(err);
+          }
+        }
+        pc.ontrack = function (event) {
+          console.log("New track");
+          var el = document.createElement(event.track.kind)
+          el.srcObject = event.streams[0]
+          el.autoplay = true
+          el.controls = true
+
+          document.getElementById('remoteVideos').appendChild(el)
+        }
+
+        socket.on('remote_offer', (msg) => {
+          console.log("Got offer");
+          console.log(msg);
+          pc.setRemoteDescription(new RTCSessionDescription(JSON.parse(atob(msg))));
+        });
+
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+          console.log("Created stream");
+          stream.getTracks().forEach((track) => pc.addTrack(track, stream));
+          /*
+            .then(stream => {
+              stream.getTracks().forEach(track => pc.addTrack(track, stream));
+              pc.createOffer().then(d => pc.setLocalDescription(d))
+            });
+            */
+
+        } catch (err) {
+          console.log(err);
+        }
+      });
+
+      socket.connect();
+    }
+
+    document.getElementById("set_name_btn").onclick = function () {
+      var http = new XMLHttpRequest();
+      var url = base_url + "/user/create";
+      var params = "name=\"" + document.getElementById("name").value + "\"";
+      http.open('POST', url, true);
+      http.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
+      http.onreadystatechange = function () {
+        if (http.readyState == 4 && http.status == 200) {
+          console.log(http.responseText);
+          var data = JSON.parse(http.responseText);
+          clientId = data.id;
+        }
+      }
+      http.send(params);
+    }
+
+    document.getElementById("new_room_btn").onclick = function () {
+      var http = new XMLHttpRequest();
+      var url = base_url + "/rooms/create";
+      var params = "uid=\"" + clientId + "\"";
+      http.open('POST', url, true);
+      http.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
+      http.onreadystatechange = function () {
+        if (http.readyState == 4 && http.status == 200) {
+          console.log(http.responseText);
+          var data = JSON.parse(http.responseText);
+          roomId = data.id;
+          document.getElementById("cid").value = roomId;
+          joinRoom();
+        }
+      }
+      http.send(params);
+
+    }
+
+    document.getElementById("connect_btn").onclick = function () {
+      var roomId = document.getElementById("cid").value;
+      joinRoom();
+    }
+  </script>
+</body>
+
+</html>

@@ -12,7 +12,8 @@ const Tarantool = require('tarantool-driver');
 const MongoClient = require('mongodb').MongoClient;
 const { v4: uuidv4 } = require('uuid');
 const socketIO = require('socket.io');
-const amqp = require('amqp');
+const amqp = require('amqplib');
+const { exit } = require('process');
 
 run();
 
@@ -21,6 +22,9 @@ var httpServer;
 var coldDBConnection;
 var socketConn;
 var io;
+
+// TODO should this be global?
+var ch = null;
 
 var rabbitMQ;
 
@@ -47,7 +51,7 @@ async function createExpressApp() {
   expressApp.use(function (req, res, next) {
 
     // Website you wish to allow to connect
-    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Origin', 'http://localhost');
 
     // Request methods you wish to allow
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
@@ -61,7 +65,7 @@ async function createExpressApp() {
 
     // Pass to next layer of middleware
     next();
-});
+  });
 
   // TODO verify room id matches existing room
 
@@ -83,10 +87,12 @@ async function createExpressApp() {
   expressApp.post('/rooms/create', async (req, res, next) => {
     const id = uuidv4();
     await hotDBConnection.insert('rooms', [id, []]);
-    var ch = await rabbitMQ.createChannel();
-    await ch.assertQueue("sfu");
+    ch = await rabbitMQ.createChannel();
+    await ch.assertQueue("sfu", {
+      "durable": false
+    });
     var msg = {
-      "cammand": "create_room",
+      "command": "create_room",
       "roomId": id,
       "peerId": "",
       "data": ""
@@ -96,19 +102,6 @@ async function createExpressApp() {
       "id": id
     });
   });
-
-  /*
-  expressApp.post('/rooms/:roomId/join', async (req, res, next) => {
-  });
-
-  expressApp.delete('/rooms/:roomId/leave', async (req, res, next) => {
-    var room = await hotDBConnection.select("rooms", "primary", 1, 0, 'eq', [req.params.roomId]);
-    const index = room[0][1].indexOf(item);
-    room[0][1].splice(index, 1);
-    await hotDBConnection.update("rooms", "primary", [req.params.roomId], [["=", 1, room[0][1]]]);
-    res.status(200).json({});
-  });
-  */
 }
 
 async function createHTTPServer() {
@@ -125,25 +118,83 @@ async function createMongoConnection() {
 }
 
 async function createRabbitMQConnection() {
-  rabbitMQ = await amqp.connect('amqp://rabbitmq');
+  try {
+    rabbitMQ = await amqp.connect('amqp://guest:guest@rabbitmq/');
+  } catch (msg) {
+    console.warn(msg);
+    exit(1);
+  }
 }
 
 async function createSocketConn() {
-  io = socketIO.listen(expressApp);
-  io.sockets.on('connection', function (socket) {
-    var ch = await rabbitMQ.createChannel();
-    await ch.assertQueue("sfu");
-    var uid;
-    socket.on("join_room", (msg) => {
+  io = socketIO.listen(httpServer);
+  // io.origins("*:*");
+  // io.set('transports', ['websocket']);
+    /*var ch = await rabbitMQ.createChannel();
+    try {
+      await ch.assertQueue("sfu", {
+        "durable": false
+      });
+    } catch (err) {
+      console.log(msg);
+    }*/
+  io.sockets.on('connection', async function (socket) {
+    console.log("New socket connection");
+    var ch = null;
+    socket.on("handshake", async (msg) => {
       var data = JSON.parse(msg);
+      console.log("Handshake");
+      console.log(data);
+      try {
+        ch = await rabbitMQ.createChannel();
+        await ch.assertQueue("sfu", {
+          "durable": false
+        });
+      } catch (err) {
+        console.log(err);
+      }
+      console.log("Created channel connection");
+    });
+    socket.on("join_room", async (msg) => {
+      console.log("A peer is trying to join room");
+      var data = JSON.parse(msg);
+      console.log(data);
       var room = await hotDBConnection.select("rooms", "primary", 1, 0, 'eq', [data.roomId]);
       room[0][1].push(data.uid);
-      uid = data.uid;
+
       await hotDBConnection.update("rooms", "primary", [data.roomId], [["=", 1, room[0][1]]]);
+      console.log("Updated db");
+
+      try {
+        var peerChannel = await rabbitMQ.createChannel();
+        await peerChannel.assertQueue(data.uid);
+
+        await ch.sendToQueue("sfu", Buffer.from(JSON.stringify(
+          {
+            "command": "add_peer",
+            "roomId": data.roomId,
+            "peerId": data.uid,
+            "data": data.offer
+          }
+        )));
+        console.log("Sent request to SFU");
+        peerChannel.consume(data.uid, function (msg) {
+          console.log("Accept message from " + data.uid);
+          if (msg !== null) {
+            console.log(msg.content.toString());
+            socket.emit("remote_offer", Buffer.from(
+              msg.content.toString()
+            ));
+            peerChannel.ack(msg);
+          }
+        });
+      } catch (err) {
+        console.warn(err);
+      }
     });
 
     socket.on("leave_room", (msg) => {
-      
+
     });
   });
 }

@@ -11,24 +11,19 @@ import (
 	"sfu_server/signal"
 )
 
-type Peer struct {
-	id string
-	connection *webrtc.PeerConnection
-	videoTrackLock sync.RWMutex
-	audioTrackLock sync.RWMutex
-	videoTrack     *webrtc.Track
-	audioTrack     *webrtc.Track
-}
-
-type Room struct {
-	peers map[string]*Peer
-	peersLock sync.RWMutex
-}
-
 var peerConnectionConfig = webrtc.Configuration{
 	ICEServers: []webrtc.ICEServer{
 		{
 			URLs: []string{"stun:stun.l.google.com:19302"},
+		},
+		{
+			URLs: []string{"turn:turn.anyfirewall.com:443?transport=tcp"},
+			Username: "webrtc",
+			Credential: "webrtc",
+			CredentialType: webrtc.ICECredentialTypePassword,
+		},
+		{
+			URLs: []string{"turn:turn01.hubl.in?transport=udp"},
 		},
 	},
 	SDPSemantics: webrtc.SDPSemanticsUnifiedPlanWithFallback,
@@ -50,6 +45,7 @@ const (
 func createRoom(id string) {
 	roomsLock.Lock()
 	rooms[id] = &Room{} 
+	rooms[id].peers = make(map[string]*Peer)
 	roomsLock.Unlock()
 }
 
