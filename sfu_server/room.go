@@ -5,8 +5,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pion/webrtc/v2"
 	"github.com/pion/rtcp"
+	"github.com/pion/webrtc/v2"
 
 	"sfu_server/signal"
 )
@@ -17,13 +17,10 @@ var peerConnectionConfig = webrtc.Configuration{
 			URLs: []string{"stun:stun.l.google.com:19302"},
 		},
 		{
-			URLs: []string{"turn:turn.anyfirewall.com:443?transport=tcp"},
-			Username: "webrtc",
-			Credential: "webrtc",
+			URLs:           []string{"turn:turn.anyfirewall.com:443?transport=tcp"},
+			Username:       "webrtc",
+			Credential:     "webrtc",
 			CredentialType: webrtc.ICECredentialTypePassword,
-		},
-		{
-			URLs: []string{"turn:turn01.hubl.in?transport=udp"},
 		},
 	},
 	SDPSemantics: webrtc.SDPSemanticsUnifiedPlanWithFallback,
@@ -44,7 +41,7 @@ const (
 
 func createRoom(id string) {
 	roomsLock.Lock()
-	rooms[id] = &Room{} 
+	rooms[id] = &Room{}
 	rooms[id].peers = make(map[string]*Peer)
 	roomsLock.Unlock()
 }
@@ -72,7 +69,7 @@ func addPeer(roomId string, peerId string, offerStr string) string {
 	if err != nil {
 		panic(err)
 	}
-	
+
 	_, err = peer.connection.AddTransceiver(webrtc.RTPCodecTypeAudio)
 	if err != nil {
 		panic(err)
@@ -96,7 +93,7 @@ func addPeer(roomId string, peerId string, offerStr string) string {
 			roomsLock.RLock()
 			for _, v := range rooms[roomId].peers {
 				peer.videoTrackLock.RLock()
-				v.connection.AddTrack(peer.videoTrack)	
+				v.connection.AddTrack(peer.videoTrack)
 				peer.videoTrackLock.RUnlock()
 			}
 			roomsLock.RUnlock()
@@ -120,7 +117,7 @@ func addPeer(roomId string, peerId string, offerStr string) string {
 				}
 				peer.videoTrackLock.RLock()
 				_, err = peer.videoTrack.Write(rtpBuf[:i])
-				peer.videoTrackLock.RUnlock() 
+				peer.videoTrackLock.RUnlock()
 				if err != io.ErrClosedPipe {
 					if err != nil {
 						panic(err)
@@ -128,39 +125,38 @@ func addPeer(roomId string, peerId string, offerStr string) string {
 				}
 			}
 
-
 		} else {
 			var err error
-				peer.audioTrackLock.Lock()
-				peer.audioTrack, err = peer.connection.NewTrack(remoteTrack.PayloadType(), remoteTrack.SSRC(), "audio", "pion")
-				peer.audioTrackLock.Unlock()
+			peer.audioTrackLock.Lock()
+			peer.audioTrack, err = peer.connection.NewTrack(remoteTrack.PayloadType(), remoteTrack.SSRC(), "audio", "pion")
+			peer.audioTrackLock.Unlock()
+			if err != nil {
+				panic(err)
+			}
+
+			roomsLock.RLock()
+			for _, v := range rooms[roomId].peers {
+				peer.audioTrackLock.RLock()
+				v.connection.AddTrack(peer.audioTrack)
+				peer.audioTrackLock.RUnlock()
+			}
+			roomsLock.RUnlock()
+
+			rtpBuf := make([]byte, 1400)
+			for {
+				i, err := remoteTrack.Read(rtpBuf)
 				if err != nil {
 					panic(err)
 				}
-
-				roomsLock.RLock()
-				for _, v := range rooms[roomId].peers {
-					peer.audioTrackLock.RLock()
-					v.connection.AddTrack(peer.audioTrack)	
-					peer.audioTrackLock.RUnlock()
-				}
-				roomsLock.RUnlock()
-
-				rtpBuf := make([]byte, 1400)
-				for {
-					i, err := remoteTrack.Read(rtpBuf)
+				peer.audioTrackLock.RLock()
+				_, err = peer.audioTrack.Write(rtpBuf[:i])
+				peer.audioTrackLock.RUnlock()
+				if err != io.ErrClosedPipe {
 					if err != nil {
 						panic(err)
 					}
-					peer.audioTrackLock.RLock()
-					_, err = peer.audioTrack.Write(rtpBuf[:i])
-					peer.audioTrackLock.RUnlock()
-					if err != io.ErrClosedPipe {
-						if err != nil {
-							panic(err)
-						}
-					}
 				}
+			}
 		}
 	})
 
@@ -175,10 +171,10 @@ func addPeer(roomId string, peerId string, offerStr string) string {
 		panic(err)
 	}
 
-  // Sets the LocalDescription, and starts our UDP listeners
+	// Sets the LocalDescription, and starts our UDP listeners
 	err = peer.connection.SetLocalDescription(answer)
-	
-	roomsLock.RLock();
+
+	roomsLock.RLock()
 	rooms[roomId].peersLock.Lock()
 	rooms[roomId].peers[peerId] = peer
 	rooms[roomId].peersLock.Unlock()
