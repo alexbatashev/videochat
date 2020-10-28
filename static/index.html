@@ -60,19 +60,19 @@
           console.log(pc.iceConnectionState)
         }
 
-        // pc.addTransceiver('audio', {'direction': 'recvonly'})
-        // pc.addTransceiver('video', {'direction': 'recvonly'})
-
         pc.onnegotiationneeded = () => {
           console.log("negotiation needed");
         }
 
-        pc.ontrack = function (event) {
+        pc.ontrack = function (transceiver) {
           console.log("New track");
-          var el = document.createElement(event.track.kind)
-          el.srcObject = event.streams[0]
+          console.log(transceiver)
+          var track = transceiver.receiver.track;
+          var el = document.createElement(track.kind)
+          el.srcObject = new MediaStream([track])
           el.autoplay = true
-          el.controls = true
+          el.controls = false 
+          track.onmute = () => el.srcObject = null;
 
           document.getElementById('remoteVideos').appendChild(el)
         }
@@ -126,7 +126,7 @@
         try {
           const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
           console.log("Created stream");
-          stream.getTracks().forEach((track) => pc.addTrack(track, stream));
+          stream.getTracks().forEach((track) => pc.addTransceiver(track, {direction: "sendonly"}));
           await pc.setLocalDescription(await pc.createOffer());
         } catch (err) {
           console.log(err);

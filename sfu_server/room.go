@@ -10,6 +10,7 @@ import (
 	"github.com/pion/randutil"
 	"github.com/pion/webrtc/v3"
 	"github.com/streadway/amqp"
+	"github.com/pion/rtcp"
 
 	"sfu_server/signal"
 )
@@ -150,6 +151,9 @@ func addPeer(roomId string, peerId string, offerStr string, conn *amqp.Connectio
 			panic(err)
 		}
 		peer.connection.AddTrack(peer.videoTracks[i])
+		// peer.connection.AddTransceiverFromTrack(peer.videoTracks[i], webrtc.RTPTransceiverInit{
+		// 	Direction: webrtc.RTPTransceiverDirectionSendonly,
+		// })
 	}
 
 	rooms[roomId].peersCountLock.Lock()
@@ -164,15 +168,18 @@ func addPeer(roomId string, peerId string, offerStr string, conn *amqp.Connectio
 			go func() {
 				ticker := time.NewTicker(rtcpPLIInterval)
 				for range ticker.C {
-					err := peer.connection.WriteRTCP([]rtcp.Packet{&rtcp.PictureLossIndication{MediaSSRC: peer.videoTrack.SSRC()}})
-					if err != nil {
-						panic(err)
+					for i := 0; i < 4; i++ {
+						if i != peer.peerNo {
+							err := peer.connection.WriteRTCP([]rtcp.Packet{&rtcp.PictureLossIndication{MediaSSRC: peer.videoTracks[i].SSRC()}})
+							if err != nil {
+								panic(err)
+							}
+						}
 					}
 				}
 			}()
 			rtpBuf := make([]byte, 1400)
 			for {
-				log.Printf("Re-sending stream from %s\n", peerId)
 				i, err := remoteTrack.Read(rtpBuf)
 				if err != nil {
 					panic(err)
@@ -190,127 +197,10 @@ func addPeer(roomId string, peerId string, offerStr string, conn *amqp.Connectio
 						peer.videoTrackLock.RUnlock()
 					}
 				}
-				// peer.videoTrackLock.RLock()
-				// _, err = peer.videoTrack.Write(rtpBuf[:i])
-				// peer.videoTrackLock.RUnlock()
-
 				if err != io.ErrClosedPipe {
 					panic(err)
 				}
-			// log.Println("new video track")
-			// var err error
-			// peer.videoTrackLock.Lock()
-			// peer.videoTrack, err = peer.connection.NewTrack(remoteTrack.PayloadType(), remoteTrack.SSRC(), "video", "pion")
-			// peer.videoTrackLock.Unlock()
-			// if err != nil {
-			// 	panic(err)
-			// }
-
-			// roomsLock.RLock()
-			// rooms[roomId].peersLock.RLock()
-			// for _, v := range rooms[roomId].peers {
-			// 	if v.id != peer.id {
-			// 		peer.videoTrackLock.RLock()
-			// 		v.connection.AddTrack(peer.videoTrack)
-			// 		peer.videoTrackLock.RUnlock()
-
-			// 		// Re-negotiate terms with participant
-			// 		newOffer, err := v.connection.CreateOffer(nil)
-			// 		if err != nil {
-			// 			panic(err)
-			// 		}
-			// 		err = v.connection.SetLocalDescription(newOffer)
-			// 		newOfferStr := signal.Encode(newOffer)
-			// 		peerMsg := PeerMsg{
-			// 			"exchange_offer",
-			// 			v.id,
-			// 			newOfferStr,
-			// 			"offer",
-			// 		}
-
-			// 		jsonMsg, err := json.Marshal(peerMsg)
-			// 		if err != nil {
-			// 			panic(err)
-			// 		}
-
-			// 		err = v.peerChannel.Publish(
-			// 			"", // exchange
-			// 			v.peerQueue.Name,
-			// 			true,  // mandatory
-			// 			false, // immediate
-			// 			amqp.Publishing{
-			// 				ContentType: "text/plain",
-			// 				Body:        []byte(jsonMsg),
-			// 			},
-			// 		)
-			// 		if err != nil {
-			// 			panic(err)
-			// 		}
-			// 	}
-			// }
-			// rooms[roomId].peersLock.RUnlock()
-			// roomsLock.RUnlock()
-
-			// // Send a PLI on an interval so that the publisher is pushing a keyframe every rtcpPLIInterval
-			// go func() {
-			// 	ticker := time.NewTicker(rtcpPLIInterval)
-			// 	for range ticker.C {
-			// 		err := peer.connection.WriteRTCP([]rtcp.Packet{&rtcp.PictureLossIndication{MediaSSRC: peer.videoTrack.SSRC()}})
-			// 		if err != nil {
-			// 			panic(err)
-			// 		}
-			// 	}
-			// }()
-
-			// rtpBuf := make([]byte, 1400)
-			// for {
-			// 	log.Printf("Re-sending stream from %s\n", peerId)
-			// 	i, err := remoteTrack.Read(rtpBuf)
-			// 	if err != nil {
-			// 		panic(err)
-			// 	}
-			// 	peer.videoTrackLock.RLock()
-			// 	_, err = peer.videoTrack.Write(rtpBuf[:i])
-			// 	peer.videoTrackLock.RUnlock()
-
-			// 	if err != io.ErrClosedPipe {
-			// 		panic(err)
-			// 	}
-			// }
-		} else {
-			var err error
-			peer.audioTrackLock.Lock()
-			peer.audioTrack, err = peer.connection.NewTrack(remoteTrack.PayloadType(), remoteTrack.SSRC(), "audio", "pion")
-			peer.audioTrackLock.Unlock()
-			if err != nil {
-				panic(err)
-			}
-
-			roomsLock.RLock()
-			for _, v := range rooms[roomId].peers {
-				v.audioTrackLock.RLock()
-				v.connection.AddTrack(peer.audioTrack)
-				v.audioTrackLock.RUnlock()
-			}
-			roomsLock.RUnlock()
-
-			rtpBuf := make([]byte, 1400)
-			for {
-				log.Printf("Reading from %s", peerId)
-				i, err := remoteTrack.Read(rtpBuf)
-				if err != nil {
-					panic(err)
-				}
-				peer.audioTrackLock.RLock()
-				_, err = peer.audioTrack.Write(rtpBuf[:i])
-				peer.audioTrackLock.RUnlock()
-				if err != io.ErrClosedPipe {
-					if err != nil {
-						panic(err)
-					}
-				}
-			}
-		}
+		} 
 	})
 
 	peer.connection.OnICEConnectionStateChange(func(connectionState webrtc.ICEConnectionState) {
