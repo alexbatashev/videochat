@@ -12,6 +12,8 @@ services:
       - prometheus
       - nginx
       - sfu
+    links:
+      - rabbitmq
   sfu:
     build: sfu_server
     restart: on-failure
@@ -47,14 +49,15 @@ services:
     ports:
       - "3005:3000"
   turn:
-    build: turn
-    # image: "instrumentisto/coturn"
-    # command: ["-n", "--log-file=stdout", "--min-port=49160", "--max-port=49200", "--lt-cred-mech", "--no-multicast-peers", "--no-cli", "--no-tlsv1", "--no-tlsv1_1", "--realm=localhost"]
+    build:
+      context: .
+      dockerfile: Dockerfile.turn
     ports:
       - "3478:3478"
       - "3478:3478/udp"
-      # - "49160-49200:49160-49200/udp"
-      - "50000-50010:50000-50010/udp"
+      - "50000-50060:50000-50060/udp"
+      - "50000-50060:50000-50060"
+    network_mode: "host"
   nginx:
     build: 
       context: .

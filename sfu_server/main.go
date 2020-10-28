@@ -5,7 +5,7 @@ import (
 	"log"
 	"sync"
 
-	"github.com/pion/webrtc/v2"
+	"github.com/pion/webrtc/v3"
 	"github.com/streadway/amqp"
 )
 
@@ -122,6 +122,18 @@ func main() {
 				)
 				offer := addPeer(command.RoomId, command.PeerId, command.Data)
 				log.Printf("New offer is %s", offer)
+
+				peerMsg := PeerMsg{
+					"exchange_offer",
+					command.PeerId,
+					offer,
+				}
+
+				jsonMsg, err := json.Marshal(peerMsg);
+				if err != nil {
+					panic(err)
+				}
+
 				err = peerChannel.Publish(
 					"", // exchange
 					peerQueue.Name,
@@ -129,13 +141,19 @@ func main() {
 					false, // immediate
 					amqp.Publishing{
 						ContentType: "text/plain",
-						Body:        []byte(offer),
+						Body:        []byte(jsonMsg),
 					},
 				)
 				log.Println("Published message")
 				if err != nil {
 					panic(err)
 				}
+			}
+
+			if command.Command == "exchange_ice" {
+				log.Println("Exchanging ICE candidates");
+
+				go addICECandidate(command.RoomId, command.PeerId, command.Data)
 			}
 
 			// TODO acknowledge message

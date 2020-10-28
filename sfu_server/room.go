@@ -5,9 +5,11 @@ import (
 	"log"
 	"sync"
 	"time"
+	"encoding/json"
 
 	"github.com/pion/rtcp"
-	"github.com/pion/webrtc/v2"
+	"github.com/pion/webrtc/v3"
+	"github.com/streadway/amqp"
 
 	"sfu_server/signal"
 )
@@ -15,7 +17,10 @@ import (
 var peerConnectionConfig = webrtc.Configuration{
 	ICEServers: []webrtc.ICEServer{
 		{
-			URLs: []string{"stun:stun.l.google.com:19302"},
+			URLs:           []string{"stun:turn:3478"},
+			Username:       "guest",
+			Credential:     "guest",
+			CredentialType: webrtc.ICECredentialTypePassword,
 		},
 		{
 			URLs:           []string{"turn:turn:3478"},
@@ -25,6 +30,8 @@ var peerConnectionConfig = webrtc.Configuration{
 		},
 	},
 	SDPSemantics: webrtc.SDPSemanticsUnifiedPlanWithFallback,
+	ICECandidatePoolSize: 10,
+	BundlePolicy: webrtc.BundlePolicyMaxCompat,
 }
 
 var rooms map[string]*Room
@@ -89,6 +96,51 @@ func addPeer(roomId string, peerId string, offerStr string) string {
 		panic(err)
 	}
 
+	log.Println("Set OnICECandidate callback")
+	peer.connection.OnICECandidate(func (candidate *webrtc.ICECandidate) {
+		if candidate == nil {
+			log.Println("Finished gathering candidates");
+		} else {
+			log.Println("New candidate!")
+			candInit := candidate.ToJSON()
+			candStr := signal.Encode(candInit)
+			log.Println(candStr)
+
+			// TODO refactor queue handling. Queues must be stored with the peer info.
+			conn, err := amqp.Dial("amqp://guest:guest@rabbitmq/")
+			peerChannel, err := conn.Channel()
+			peerQueue, err := peerChannel.QueueDeclare(
+				peerId, // name
+				false,          // durable
+				false,          // delete when unused
+				false,          // exclusive
+				false,          // no-wait
+				nil,            // arguments
+			)
+
+			peerMsg := PeerMsg{
+				"exchange_ice",
+				peerId,
+				candStr,
+			}
+
+			jsonMsg, err := json.Marshal(peerMsg);
+			if err != nil {
+				panic(err)
+			}
+
+			err = peerChannel.Publish(
+				"", // exchange
+				peerQueue.Name,
+				true, // mandatory
+				false, // immediate
+				amqp.Publishing{
+					ContentType: "text/plain",
+					Body:        []byte(jsonMsg),
+				},
+			)
+		}
+	})
 	log.Println("Set OnTrack callback")
 	peer.connection.OnTrack(func(remoteTrack *webrtc.Track, receiver *webrtc.RTPReceiver) {
 		if remoteTrack.PayloadType() == webrtc.DefaultPayloadTypeVP8 || remoteTrack.PayloadType() == webrtc.DefaultPayloadTypeVP9 || remoteTrack.PayloadType() == webrtc.DefaultPayloadTypeH264 {
@@ -106,9 +158,21 @@ func addPeer(roomId string, peerId string, offerStr string) string {
 				peer.videoTrackLock.RLock()
 				v.connection.AddTrack(peer.videoTrack)
 				peer.videoTrackLock.RUnlock()
-				v.videoTrackLock.RLock();
+				// Wait for track to be added
+				for {
+					v.videoTrackLock.RLock()
+					if v.videoTrack == nil {
+						v.videoTrackLock.RUnlock()
+						//if videoTrack == nil, waiting..
+						time.Sleep(100 * time.Millisecond)
+					} else {
+						v.videoTrackLock.RUnlock()
+						break
+					}
+				}
+				v.videoTrackLock.RLock()
 				peer.connection.AddTrack(v.videoTrack)
-				v.videoTrackLock.RUnlock();
+				v.videoTrackLock.RUnlock()
 			}
 			roomsLock.RUnlock()
 
@@ -116,6 +180,7 @@ func addPeer(roomId string, peerId string, offerStr string) string {
 			go func() {
 				ticker := time.NewTicker(rtcpPLIInterval)
 				for range ticker.C {
+					log.Println("Keyframe")
 					err := peer.connection.WriteRTCP([]rtcp.Packet{&rtcp.PictureLossIndication{MediaSSRC: peer.videoTrack.SSRC()}})
 					if err != nil {
 						panic(err)
@@ -174,6 +239,10 @@ func addPeer(roomId string, peerId string, offerStr string) string {
 		}
 	})
 
+	peer.connection.OnICEConnectionStateChange(func(connectionState webrtc.ICEConnectionState) {
+		log.Printf("Connection State has changed %s \n", connectionState.String())
+	})
+
 	log.Println("Create answer")
 	answer, err := peer.connection.CreateAnswer(nil)
 	if err != nil {
@@ -190,5 +259,40 @@ func addPeer(roomId string, peerId string, offerStr string) string {
 	rooms[roomId].peersLock.Unlock()
 	roomsLock.RUnlock()
 
-	return signal.Encode(*peer.connection.LocalDescription())
+	return signal.Encode(answer)
+}
+
+func addICECandidate(roomId string, peerId string, iceStr string) {
+	iceCandidate := webrtc.ICECandidateInit{}
+	signal.Decode(iceStr, &iceCandidate)
+	log.Println("Adding ICE candidate")
+	// Wait until room is created
+	for {
+		roomsLock.RLock()
+		if rooms[roomId] == nil {
+			roomsLock.RUnlock()
+			time.Sleep(100 * time.Millisecond)
+		} else {
+			roomsLock.RUnlock()
+			break
+		}
+	}
+	// Wait until peer is created
+	for {
+		roomsLock.RLock()
+		rooms[roomId].peersLock.RLock()
+		if rooms[roomId].peers[peerId] == nil {
+			rooms[roomId].peersLock.RUnlock()
+			roomsLock.RUnlock()
+			time.Sleep(100 * time.Millisecond)
+		} else {
+			rooms[roomId].peersLock.RUnlock()
+			roomsLock.RUnlock()
+			break
+		}
+	}
+	roomsLock.RLock()
+	rooms[roomId].peers[peerId].connection.AddICECandidate(iceCandidate)
+	roomsLock.RUnlock()
+	log.Println("ICe candidate was added")
 }

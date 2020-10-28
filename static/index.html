@@ -42,14 +42,17 @@
         let pc = new RTCPeerConnection({
           iceServers: [
             {
-              urls: 'stun:stun.l.google.com:19302'
+              urls: 'stun:localhost:3478',
+              username: "guest",
+              credential: "guest"
             },
             {
               urls: "turn:localhost:3478",
               username: "guest",
               credential: "guest"
             }
-          ]
+          ],
+          iceCandidatePoolSize: 10
         });
 
         pc.oniceconnectionstatechange = e => {
@@ -57,24 +60,6 @@
           console.log(pc.iceConnectionState)
         }
 
-        pc.onnegotiationneeded = async () => {
-          console.log("Negotioation needed");
-          try {
-            await pc.setLocalDescription(await pc.createOffer());
-            let offer = btoa(JSON.stringify(pc.localDescription));
-            console.log(pc.localDescription)
-            console.log("Local offer");
-            console.log(offer);
-            await socket.emit('join_room', JSON.stringify({
-              "roomId": roomId,
-              "uid": clientId,
-              "offer": offer
-            }));
-            console.log("Sent offer");
-          } catch (err) {
-            console.log(err);
-          }
-        }
         pc.ontrack = function (event) {
           console.log("New track");
           var el = document.createElement(event.track.kind)
@@ -85,6 +70,40 @@
           document.getElementById('remoteVideos').appendChild(el)
         }
 
+        pc.onicecandidate = async (event) => {
+          if (event.candidate !== null) {
+            console.log("New candidate");
+            console.log(event.candidate);
+            /*let cand = btoa(JSON.stringify(event.candidate));
+            await socket.emit("exchange_ice", JSON.stringify({
+              "roomId": roomId,
+              "uid": clientId,
+              "ice": cand
+            }));*/
+          } else {
+            let offer = btoa(JSON.stringify(pc.localDescription));
+            console.log(pc.localDescription)
+            console.log("Local offer");
+            console.log(offer);
+            await socket.emit('join_room', JSON.stringify({
+              "roomId": roomId,
+              "uid": clientId,
+              "offer": offer
+            }));
+            console.log("Sent offer");
+            console.log("Finished gathering candidates");
+          }
+        }
+
+        socket.on('exchange_ice', (msg) => {
+          console.log("New remote ICE candidate");
+          var enc = new TextDecoder("utf-8");
+          // console.log(enc.decode(msg));
+          var ice = JSON.parse(atob(enc.decode(msg)));
+          console.log(ice);
+          pc.addIceCandidate(ice);
+        });
+
         socket.on('remote_offer', (msg) => {
           console.log("Got offer");
           var enc = new TextDecoder("utf-8");
@@ -93,19 +112,14 @@
           console.log(descr);
           var rtcDescr = new RTCSessionDescription(descr);
           pc.setRemoteDescription(rtcDescr);
+          console.log(pc.remoteDescription);
         });
 
         try {
           const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
           console.log("Created stream");
           stream.getTracks().forEach((track) => pc.addTrack(track, stream));
-          /*
-            .then(stream => {
-              stream.getTracks().forEach(track => pc.addTrack(track, stream));
-              pc.createOffer().then(d => pc.setLocalDescription(d))
-            });
-            */
-
+          await pc.setLocalDescription(await pc.createOffer());
         } catch (err) {
           console.log(err);
         }

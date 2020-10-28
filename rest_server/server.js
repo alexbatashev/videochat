@@ -135,16 +135,12 @@ async function createSocketConn() {
       var data = JSON.parse(msg);
       console.log("Handshake");
       console.log(data);
-      try {
         console.log("Creating channel")
         ch = await rabbitMQ.createChannel();
         await ch.assertQueue("sfu", {
           "durable": false
         });
         console.log("Created channel connection");
-      } catch (err) {
-        console.log(err);
-      }
     });
     socket.on("join_room", async (msg) => {
       console.log("A peer is trying to join room");
@@ -162,6 +158,26 @@ async function createSocketConn() {
           "durable": false
         });
 
+        peerChannel.consume(data.uid, function (msg) {
+          console.log("Accept message from " + data.uid);
+          if (msg !== null) {
+            var msgObj = JSON.parse(msg.content.toString());
+            console.log(msgObj)
+            if (msgObj.Command === "exchange_offer") {
+              console.log(msgObj);
+              socket.emit("remote_offer", Buffer.from(
+                msgObj.Data
+              ));
+              peerChannel.ack(msg);
+            } else if (msgObj.Command === "exchange_ice") {
+              console.log(msgObj)
+              socket.emit("exchange_ice", Buffer.from(
+                msgObj.Data
+              ));
+            }
+          }
+        });
+
         await ch.sendToQueue("sfu", Buffer.from(JSON.stringify(
           {
             "command": "add_peer",
@@ -171,16 +187,25 @@ async function createSocketConn() {
           }
         )));
         console.log("Sent request to SFU");
-        peerChannel.consume(data.uid, function (msg) {
-          console.log("Accept message from " + data.uid);
-          if (msg !== null) {
-            console.log(msg.content.toString());
-            socket.emit("remote_offer", Buffer.from(
-              msg.content.toString()
-            ));
-            peerChannel.ack(msg);
+      } catch (err) {
+        console.warn(err);
+      }
+    });
+
+    socket.on("exchange_ice", async (msg) => {
+      console.log("A peer is trying to exchange ICE candidates");
+      var data = JSON.parse(msg);
+      console.log(data);
+
+      try {
+        await ch.sendToQueue("sfu", Buffer.from(JSON.stringify(
+          {
+            "command": "exchange_ice",
+            "roomId": data.roomId,
+            "peerId": data.uid,
+            "data": data.ice
           }
-        });
+        )));
       } catch (err) {
         console.warn(err);
       }
