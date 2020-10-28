@@ -60,6 +60,9 @@
           console.log(pc.iceConnectionState)
         }
 
+        pc.addTransceiver('audio', {'direction': 'recvonly'})
+        pc.addTransceiver('video', {'direction': 'recvonly'})
+
         pc.ontrack = function (event) {
           console.log("New track");
           var el = document.createElement(event.track.kind)
