@@ -128,16 +128,6 @@ async function createRabbitMQConnection() {
 
 async function createSocketConn() {
   io = socketIO.listen(httpServer);
-  // io.origins("*:*");
-  // io.set('transports', ['websocket']);
-    /*var ch = await rabbitMQ.createChannel();
-    try {
-      await ch.assertQueue("sfu", {
-        "durable": false
-      });
-    } catch (err) {
-      console.log(msg);
-    }*/
   io.sockets.on('connection', async function (socket) {
     console.log("New socket connection");
     var ch = null;
@@ -168,7 +158,9 @@ async function createSocketConn() {
 
       try {
         var peerChannel = await rabbitMQ.createChannel();
-        await peerChannel.assertQueue(data.uid);
+        await peerChannel.assertQueue(data.uid, {
+          "durable": false
+        });
 
         await ch.sendToQueue("sfu", Buffer.from(JSON.stringify(
           {

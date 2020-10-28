@@ -26,10 +26,6 @@
     let base_url = "http://localhost:3000";
     let ws_url = "ws://localhost:3000/";
 
-    function log(msg) {
-      console.log(msg);
-    }
-
     async function joinRoom() {
       const socket = io(ws_url, {
         transports: ['websocket']
@@ -48,26 +44,25 @@
             {
               urls: 'stun:stun.l.google.com:19302'
             },
-            //{
-            //  urls: 'turn:localhost:3478' /*,
-            //  username: "guest",
-            //  credential: "guest"*/ 
-            // },
             {
-              urls: "turn:turn.anyfirewall.com:443?transport=tcp",
-              username: "webrtc",
-              credential: "webrtc"
+              urls: "turn:localhost:3478",
+              username: "guest",
+              credential: "guest"
             }
           ]
         });
 
-        pc.oniceconnectionstatechange = e => log(pc.iceConnectionState)
+        pc.oniceconnectionstatechange = e => {
+          console.log(e)
+          console.log(pc.iceConnectionState)
+        }
 
         pc.onnegotiationneeded = async () => {
           console.log("Negotioation needed");
           try {
             await pc.setLocalDescription(await pc.createOffer());
             let offer = btoa(JSON.stringify(pc.localDescription));
+            console.log(pc.localDescription)
             console.log("Local offer");
             console.log(offer);
             await socket.emit('join_room', JSON.stringify({
@@ -92,8 +87,12 @@
 
         socket.on('remote_offer', (msg) => {
           console.log("Got offer");
-          console.log(msg);
-          pc.setRemoteDescription(new RTCSessionDescription(JSON.parse(atob(msg))));
+          var enc = new TextDecoder("utf-8");
+          // console.log(enc.decode(msg));
+          var descr = JSON.parse(atob(enc.decode(msg)));
+          console.log(descr);
+          var rtcDescr = new RTCSessionDescription(descr);
+          pc.setRemoteDescription(rtcDescr);
         });
 
         try {
@@ -151,7 +150,7 @@
     }
 
     document.getElementById("connect_btn").onclick = function () {
-      var roomId = document.getElementById("cid").value;
+      roomId = document.getElementById("cid").value;
       joinRoom();
     }
   </script>

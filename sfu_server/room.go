@@ -2,6 +2,7 @@ package main
 
 import (
 	"io"
+	"log"
 	"sync"
 	"time"
 
@@ -17,9 +18,9 @@ var peerConnectionConfig = webrtc.Configuration{
 			URLs: []string{"stun:stun.l.google.com:19302"},
 		},
 		{
-			URLs:           []string{"turn:turn.anyfirewall.com:443?transport=tcp"},
-			Username:       "webrtc",
-			Credential:     "webrtc",
+			URLs:           []string{"turn:turn:3478"},
+			Username:       "guest",
+			Credential:     "guest",
 			CredentialType: webrtc.ICECredentialTypePassword,
 		},
 	},
@@ -54,22 +55,30 @@ func addPeer(roomId string, peerId string, offerStr string) string {
 	signal.Decode(offerStr, &offer)
 
 	// TODO is it thread safe/necessary?
-	err := m.PopulateFromSDP(offer)
-	if err != nil {
-		panic(err)
-	}
+	log.Println("Populate from SDP")
+	// err := m.PopulateFromSDP(offer)
+	//if err != nil {
+	//	panic(err)
+	// }
 
+	log.Println("Look for codecs")
+	var err error
 	videoCodecs := m.GetCodecsByKind(webrtc.RTPCodecTypeVideo)
 	if len(videoCodecs) == 0 {
 		panic("Offer contained no video codecs")
 	}
 
 	// Create new peer connection
+	log.Println("Create new peer connection")
 	peer.connection, err = api.NewPeerConnection(peerConnectionConfig)
 	if err != nil {
 		panic(err)
 	}
 
+	log.Println("Set remote description")
+	peer.connection.SetRemoteDescription(offer)
+
+	log.Println("Add transcievers")
 	_, err = peer.connection.AddTransceiver(webrtc.RTPCodecTypeAudio)
 	if err != nil {
 		panic(err)
@@ -80,8 +89,10 @@ func addPeer(roomId string, peerId string, offerStr string) string {
 		panic(err)
 	}
 
+	log.Println("Set OnTrack callback")
 	peer.connection.OnTrack(func(remoteTrack *webrtc.Track, receiver *webrtc.RTPReceiver) {
 		if remoteTrack.PayloadType() == webrtc.DefaultPayloadTypeVP8 || remoteTrack.PayloadType() == webrtc.DefaultPayloadTypeVP9 || remoteTrack.PayloadType() == webrtc.DefaultPayloadTypeH264 {
+			log.Println("new video track")
 			var err error
 			peer.videoTrackLock.Lock()
 			peer.videoTrack, err = peer.connection.NewTrack(remoteTrack.PayloadType(), remoteTrack.SSRC(), "video", "pion")
@@ -95,6 +106,9 @@ func addPeer(roomId string, peerId string, offerStr string) string {
 				peer.videoTrackLock.RLock()
 				v.connection.AddTrack(peer.videoTrack)
 				peer.videoTrackLock.RUnlock()
+				v.videoTrackLock.RLock();
+				peer.connection.AddTrack(v.videoTrack)
+				v.videoTrackLock.RUnlock();
 			}
 			roomsLock.RUnlock()
 
@@ -136,9 +150,9 @@ func addPeer(roomId string, peerId string, offerStr string) string {
 
 			roomsLock.RLock()
 			for _, v := range rooms[roomId].peers {
-				peer.audioTrackLock.RLock()
+				v.audioTrackLock.RLock()
 				v.connection.AddTrack(peer.audioTrack)
-				peer.audioTrackLock.RUnlock()
+				v.audioTrackLock.RUnlock()
 			}
 			roomsLock.RUnlock()
 
@@ -160,18 +174,14 @@ func addPeer(roomId string, peerId string, offerStr string) string {
 		}
 	})
 
-	peer.connection.SetRemoteDescription(
-		webrtc.SessionDescription{
-			SDP:  offerStr,
-			Type: webrtc.SDPTypeOffer,
-		})
-
+	log.Println("Create answer")
 	answer, err := peer.connection.CreateAnswer(nil)
 	if err != nil {
 		panic(err)
 	}
 
 	// Sets the LocalDescription, and starts our UDP listeners
+	log.Println("Set local description")
 	err = peer.connection.SetLocalDescription(answer)
 
 	roomsLock.RLock()
@@ -180,5 +190,5 @@ func addPeer(roomId string, peerId string, offerStr string) string {
 	rooms[roomId].peersLock.Unlock()
 	roomsLock.RUnlock()
 
-	return signal.Encode(answer.SDP)
+	return signal.Encode(*peer.connection.LocalDescription())
 }

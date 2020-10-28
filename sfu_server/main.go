@@ -121,16 +121,18 @@ func main() {
 					nil,            // arguments
 				)
 				offer := addPeer(command.RoomId, command.PeerId, command.Data)
+				log.Printf("New offer is %s", offer)
 				err = peerChannel.Publish(
 					"", // exchange
 					peerQueue.Name,
 					true, // mandatory
-					true, // immediate
+					false, // immediate
 					amqp.Publishing{
 						ContentType: "text/plain",
 						Body:        []byte(offer),
 					},
 				)
+				log.Println("Published message")
 				if err != nil {
 					panic(err)
 				}
