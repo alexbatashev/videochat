@@ -165,9 +165,10 @@ async function createSocketConn() {
             console.log(msgObj)
             if (msgObj.Command === "exchange_offer") {
               console.log(msgObj);
-              socket.emit("remote_offer", Buffer.from(
-                msgObj.Data
-              ));
+              socket.emit("remote_offer", Buffer.from(JSON.stringify({
+                "data": msgObj.Data,
+                "kind": msgObj.OfferKind
+              })));
               peerChannel.ack(msg);
             } else if (msgObj.Command === "exchange_ice") {
               console.log(msgObj)

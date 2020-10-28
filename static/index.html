@@ -60,8 +60,12 @@
           console.log(pc.iceConnectionState)
         }
 
-        pc.addTransceiver('audio', {'direction': 'recvonly'})
-        pc.addTransceiver('video', {'direction': 'recvonly'})
+        // pc.addTransceiver('audio', {'direction': 'recvonly'})
+        // pc.addTransceiver('video', {'direction': 'recvonly'})
+
+        pc.onnegotiationneeded = () => {
+          console.log("negotiation needed");
+        }
 
         pc.ontrack = function (event) {
           console.log("New track");
@@ -77,12 +81,12 @@
           if (event.candidate !== null) {
             console.log("New candidate");
             console.log(event.candidate);
-            /*let cand = btoa(JSON.stringify(event.candidate));
+            let cand = btoa(JSON.stringify(event.candidate));
             await socket.emit("exchange_ice", JSON.stringify({
               "roomId": roomId,
               "uid": clientId,
               "ice": cand
-            }));*/
+            }));
           } else {
             let offer = btoa(JSON.stringify(pc.localDescription));
             console.log(pc.localDescription)
@@ -111,7 +115,8 @@
           console.log("Got offer");
           var enc = new TextDecoder("utf-8");
           // console.log(enc.decode(msg));
-          var descr = JSON.parse(atob(enc.decode(msg)));
+          var data = JSON.parse(enc.decode(msg))
+          var descr = JSON.parse(atob(data.data));
           console.log(descr);
           var rtcDescr = new RTCSessionDescription(descr);
           pc.setRemoteDescription(rtcDescr);

@@ -14,12 +14,17 @@ type Peer struct {
 	connection     *webrtc.PeerConnection
 	videoTrackLock sync.RWMutex
 	audioTrackLock sync.RWMutex
-	videoTrack     *webrtc.Track
+	videoTracks    [4]*webrtc.Track
 	audioTrack     *webrtc.Track
+	peerChannel    *amqp.Channel
+	peerQueue      *amqp.Queue
+	peerNo         int
 }
 type Room struct {
-	peers     map[string]*Peer
-	peersLock sync.RWMutex
+	peers          map[string]*Peer
+	peersLock      sync.RWMutex
+	peersCountLock sync.RWMutex
+	peersCount     int
 }
 
 func initAll() {
@@ -50,9 +55,10 @@ type Message struct {
 }
 
 type PeerMsg struct {
-	Command string
-	PeerId  string
-	Data    string
+	Command   string
+	PeerId    string
+	Data      string
+	OfferKind string
 }
 
 func main() {
@@ -108,50 +114,11 @@ func main() {
 
 			if command.Command == "add_peer" {
 				log.Println("Adding peer")
-				peerChannel, err := conn.Channel()
-				if err != nil {
-					panic(err)
-				}
-				peerQueue, err := peerChannel.QueueDeclare(
-					command.PeerId, // name
-					false,          // durable
-					false,          // delete when unused
-					false,          // exclusive
-					false,          // no-wait
-					nil,            // arguments
-				)
-				offer := addPeer(command.RoomId, command.PeerId, command.Data)
-				log.Printf("New offer is %s", offer)
-
-				peerMsg := PeerMsg{
-					"exchange_offer",
-					command.PeerId,
-					offer,
-				}
-
-				jsonMsg, err := json.Marshal(peerMsg);
-				if err != nil {
-					panic(err)
-				}
-
-				err = peerChannel.Publish(
-					"", // exchange
-					peerQueue.Name,
-					true, // mandatory
-					false, // immediate
-					amqp.Publishing{
-						ContentType: "text/plain",
-						Body:        []byte(jsonMsg),
-					},
-				)
-				log.Println("Published message")
-				if err != nil {
-					panic(err)
-				}
+				addPeer(command.RoomId, command.PeerId, command.Data, conn)
 			}
 
 			if command.Command == "exchange_ice" {
-				log.Println("Exchanging ICE candidates");
+				log.Println("Exchanging ICE candidates")
 
 				go addICECandidate(command.RoomId, command.PeerId, command.Data)
 			}
