@@ -278,7 +278,7 @@ func addICECandidate(roomId string, peerId string, iceStr string) {
 	roomsLock.RLock()
 	rooms[roomId].peers[peerId].connection.AddICECandidate(iceCandidate)
 	roomsLock.RUnlock()
-	log.Println("ICe candidate was added")
+	log.Println("ICE candidate was added")
 }
 
 func removePeer(roomId string, peerId string) {
