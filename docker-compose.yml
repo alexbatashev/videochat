@@ -43,9 +43,13 @@ services:
       timeout: 10s
       retries: 5
   prometheus:
-    image: "bitnami/prometheus"
+    build:
+      context: .
+      dockerfile: Dockerfile.prometheus
   grafana:
-    image: "grafana/grafana"
+    build:
+      context: .
+      dockerfile: Dockerfile.grafana
     ports:
       - "3005:3000"
   turn:
