@@ -8,8 +8,8 @@ jobs:
       - uses: actions/checkout@v1
       - run: |
           docker-compose up -d
-          sleep 3m
+          sleep 1m
       - run: cd e2e && yarn install
-      - run: yarn jest e2e/runWithSelenium.test.ts
+      - run: cd e2e && yarn jest runWithSelenium.test.ts
     env:
       BROWSER: chrome
