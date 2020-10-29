@@ -30,6 +30,7 @@ services:
       TARANTOOL_USER_PASSWORD: "tarantoolpwd"
   mongo:
     image: "mongo"
+    restart: on-failure
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD: secret
@@ -37,6 +38,7 @@ services:
     image: "rabbitmq:3.8.9-management-alpine"
     ports:
       - 8080:15672
+    restart: on-failure
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:15672"]
       interval: 30s
