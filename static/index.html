@@ -13,6 +13,7 @@
     <input type="text" id="cid" placeholder="Coference ID" />
     <button id="new_room_btn">New conference</button>
     <button id="connect_btn">Connect</button>
+    <button id="hang_btn" disabled>Hang</button>
   </p>
   <div id="remoteVideos"></div> <br />
 
@@ -59,6 +60,9 @@
         pc.oniceconnectionstatechange = e => {
           console.log(e)
           console.log(pc.iceConnectionState)
+          if (pc.iceConnectionState == "connected") {
+            document.getElementById("hang_btn").disabled = false
+          }
         }
 
         pc.onnegotiationneeded = () => {
@@ -126,6 +130,19 @@
           // console.log(pc.remoteDescription);
         });
 
+        document.getElementById("hang_btn").onclick = function () {
+          document.getElementById("hang_btn").disabled = true;
+          document.getElementById("remoteVideos").textContent = ''
+          pc.close();
+          socket.emit("leave_room", JSON.stringify({
+            "roomId": roomId,
+            "uid": clientId
+          }))
+          socket.close();
+          
+          // TODO close socket
+        }
+
         try {
           const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
           console.log("Created stream");
@@ -159,7 +176,6 @@
           console.log(err);
         }
       });
-
       socket.connect();
     }
 

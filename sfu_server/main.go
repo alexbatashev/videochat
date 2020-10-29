@@ -142,6 +142,12 @@ func main() {
 				go addICECandidate(command.RoomId, command.PeerId, command.Data)
 			}
 
+			if command.Command == "remove_peer" {
+				log.Println("Removing peer")
+
+				go removePeer(command.RoomId, command.PeerId)
+			}
+
 			// TODO acknowledge message
 			if err := d.Ack(false); err != nil {
 				log.Printf("Error acknowledging message : %s", err)

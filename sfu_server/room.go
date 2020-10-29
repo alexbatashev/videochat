@@ -190,7 +190,7 @@ func addPeer(roomId string, peerId string, offerStr string, conn *amqp.Connectio
 					}
 				}
 			}()
-			for {
+			for peer.connected {
 				packet, readErr := remoteTrack.ReadRTP()
 				if readErr != nil {
 					panic(err)
@@ -305,4 +305,27 @@ func addICECandidate(roomId string, peerId string, iceStr string) {
 	rooms[roomId].peers[peerId].connection.AddICECandidate(iceCandidate)
 	roomsLock.RUnlock()
 	log.Println("ICe candidate was added")
+}
+
+func removePeer(roomId string, peerId string) {	
+	// Wait for peer to disconnect. Otherwise, someone may write there.
+	for {
+		roomsLock.RLock()
+		rooms[roomId].peersLock.RLock()
+		if rooms[roomId].peers[peerId].connected {
+			rooms[roomId].peersLock.RUnlock()
+			roomsLock.RUnlock()
+			time.Sleep(100 * time.Millisecond)
+		} else {
+			rooms[roomId].peersLock.RUnlock()
+			roomsLock.RUnlock()
+			break
+		}
+	}
+
+	roomsLock.RLock()
+	rooms[roomId].peersLock.Lock()
+	delete(rooms[roomId].peers, peerId)
+	rooms[roomId].peersLock.Unlock()
+	roomsLock.RUnlock()
 }

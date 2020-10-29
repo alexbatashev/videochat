@@ -212,8 +212,17 @@ async function createSocketConn() {
       }
     });
 
-    socket.on("leave_room", (msg) => {
-
+    socket.on("leave_room", async (msg) => {
+      console.log("Peer is leaving room");
+      var data = JSON.parse(msg);
+      await ch.sendToQueue("sfu", Buffer.from(JSON.stringify(
+        {
+          "command": "remove_peer",
+          "roomId": data.roomId,
+          "peerId": data.uid,
+          "data": "" 
+        }
+      )));
     });
   });
 }
