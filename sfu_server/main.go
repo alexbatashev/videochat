@@ -5,7 +5,6 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"sync"
 
 	"github.com/pion/sdp/v3"
 	"github.com/pion/webrtc/v3"
@@ -13,26 +12,8 @@ import (
 	"github.com/streadway/amqp"
 )
 
-type Peer struct {
-	id             string
-	connection     *webrtc.PeerConnection
-	videoTrackLock sync.RWMutex
-	audioTrackLock sync.RWMutex
-	videoTracks    [4]*webrtc.Track
-	audioTrack     *webrtc.Track
-	peerChannel    *amqp.Channel
-	peerQueue      *amqp.Queue
-	peerNo         int
-	connected      bool
-}
-type Room struct {
-	peers          map[string]*Peer
-	peersLock      sync.RWMutex
-	peersCountLock sync.RWMutex
-	peersCount     int
-}
-
 func initAll() {
+	initRooms()
 	// Create a MediaEngine object to configure the supported codec
 	m = webrtc.MediaEngine{}
 
@@ -58,8 +39,6 @@ func initAll() {
 
 	// Create the API object with the MediaEngine
 	api = webrtc.NewAPI(webrtc.WithMediaEngine(m), webrtc.WithSettingEngine((se)))
-
-	rooms = make(map[string]*Room)
 }
 
 func failOnError(err error, msg string) {
