@@ -4,9 +4,11 @@ import (
 	"encoding/json"
 	"log"
 	"sync"
+	"net/url"
 
 	"github.com/pion/webrtc/v3"
 	"github.com/streadway/amqp"
+	"github.com/pion/sdp/v3"
 )
 
 type Peer struct {
@@ -19,6 +21,7 @@ type Peer struct {
 	peerChannel    *amqp.Channel
 	peerQueue      *amqp.Queue
 	peerNo         int
+	connected      bool
 }
 type Room struct {
 	peers          map[string]*Peer
@@ -35,8 +38,24 @@ func initAll() {
 	m.RegisterCodec(webrtc.NewRTPVP8Codec(webrtc.DefaultPayloadTypeVP8, 90000))
 	m.RegisterCodec(webrtc.NewRTPOpusCodec(webrtc.DefaultPayloadTypeOpus, 48000))
 
+	// Configure required extensions
+
+	sdes, _ := url.Parse(sdp.SDESRTPStreamIDURI)
+	sdedMid, _ := url.Parse(sdp.SDESMidURI)
+	exts := []sdp.ExtMap{
+		{
+			URI: sdes,
+		},
+		{
+			URI: sdedMid,
+		},
+	}
+
+	se := webrtc.SettingEngine{}
+	se.AddSDPExtensions(webrtc.SDPSectionVideo, exts)
+
 	// Create the API object with the MediaEngine
-	api = webrtc.NewAPI(webrtc.WithMediaEngine(m))
+	api = webrtc.NewAPI(webrtc.WithMediaEngine(m), webrtc.WithSettingEngine((se)))
 
 	rooms = make(map[string]*Room)
 }
@@ -109,12 +128,12 @@ func main() {
 
 			if command.Command == "create_room" {
 				log.Println("Creating new room")
-				createRoom(command.RoomId)
+				go createRoom(command.RoomId)
 			}
 
 			if command.Command == "add_peer" {
 				log.Println("Adding peer")
-				addPeer(command.RoomId, command.PeerId, command.Data, conn)
+				go addPeer(command.RoomId, command.PeerId, command.Data, conn)
 			}
 
 			if command.Command == "exchange_ice" {

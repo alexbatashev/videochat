@@ -1,16 +1,18 @@
 package main
 
 import (
+	"errors"
 	"encoding/json"
-	"io"
 	"log"
+	"strconv"
 	"sync"
 	"time"
+	"io"
 
 	"github.com/pion/randutil"
+	"github.com/pion/rtcp"
 	"github.com/pion/webrtc/v3"
 	"github.com/streadway/amqp"
-	"github.com/pion/rtcp"
 
 	"sfu_server/signal"
 )
@@ -30,9 +32,9 @@ var peerConnectionConfig = webrtc.Configuration{
 			CredentialType: webrtc.ICECredentialTypePassword,
 		},
 	},
-	SDPSemantics:         webrtc.SDPSemanticsUnifiedPlanWithFallback,
-	ICECandidatePoolSize: 10,
-	BundlePolicy:         webrtc.BundlePolicyMaxCompat,
+	SDPSemantics: webrtc.SDPSemanticsUnifiedPlanWithFallback,
+	BundlePolicy: webrtc.BundlePolicyMaxCompat,
+	// ICECandidatePoolSize: 12,
 }
 
 var rooms map[string]*Room
@@ -56,22 +58,43 @@ func createRoom(id string) {
 }
 
 func addPeer(roomId string, peerId string, offerStr string, conn *amqp.Connection) {
+
+	for {
+		roomsLock.RLock()
+		if rooms[roomId] == nil {
+			roomsLock.RUnlock()
+		} else {
+			roomsLock.RUnlock()
+			break
+		}
+	}
+
 	peer := &Peer{}
 	peer.id = peerId
+	peer.connected = false
+
+	// Set up peer queue
+	// TODO make it die when unused
+	var err error
+	peer.peerChannel, err = conn.Channel()
+	if err != nil {
+		panic(err)
+	}
+	peerQueue, err := peer.peerChannel.QueueDeclare(
+		peerId, // name
+		false,  // durable
+		false,  // delete when unused
+		false,  // exclusive
+		false,  // no-wait
+		nil,    // arguments
+	)
+	peer.peerQueue = &peerQueue
 
 	// Parse client offer
 	offer := webrtc.SessionDescription{}
 	signal.Decode(offerStr, &offer)
 
-	// TODO is it thread safe/necessary?
-	log.Println("Populate from SDP")
-	// err := m.PopulateFromSDP(offer)
-	//if err != nil {
-	//	panic(err)
-	// }
-
 	log.Println("Look for codecs")
-	var err error
 	videoCodecs := m.GetCodecsByKind(webrtc.RTPCodecTypeVideo)
 	if len(videoCodecs) == 0 {
 		panic("Offer contained no video codecs")
@@ -83,20 +106,6 @@ func addPeer(roomId string, peerId string, offerStr string, conn *amqp.Connectio
 	if err != nil {
 		panic(err)
 	}
-
-	log.Println("Set remote description")
-	peer.connection.SetRemoteDescription(offer)
-
-	// log.Println("Add transcievers")
-	// _, err = peer.connection.AddTransceiver(webrtc.RTPCodecTypeAudio)
-	// if err != nil {
-	// 	panic(err)
-	// }
-
-	// _, err = peer.connection.AddTransceiver(webrtc.RTPCodecTypeVideo)
-	// if err != nil {
-	// 	panic(err)
-	// }
 
 	log.Println("Set OnICECandidate callback")
 	peer.connection.OnICECandidate(func(candidate *webrtc.ICECandidate) {
@@ -146,14 +155,19 @@ func addPeer(roomId string, peerId string, offerStr string, conn *amqp.Connectio
 	})
 
 	for i := 0; i < 4; i++ {
-		peer.videoTracks[i], err = peer.connection.NewTrack(webrtc.DefaultPayloadTypeVP8, randutil.NewMathRandomGenerator().Uint32(), "video", "pion")
+		s := strconv.Itoa(i)
+		peer.videoTracks[i], err = peer.connection.NewTrack(videoCodecs[0].PayloadType, randutil.NewMathRandomGenerator().Uint32(), "video_"+s, "pion_"+s)
+		log.Printf("Creating track #%d", i)
 		if err != nil {
 			panic(err)
 		}
-		peer.connection.AddTrack(peer.videoTracks[i])
-		// peer.connection.AddTransceiverFromTrack(peer.videoTracks[i], webrtc.RTPTransceiverInit{
-		// 	Direction: webrtc.RTPTransceiverDirectionSendonly,
+		_, err = peer.connection.AddTrack(peer.videoTracks[i])
+		// _, err = peer.connection.AddTransceiverFromTrack(peer.videoTracks[i], webrtc.RTPTransceiverInit{
+		// 	Direction: webrtc.RTPTransceiverDirectionSendrecv,
 		// })
+		if err != nil {
+			panic(err)
+		}
 	}
 
 	rooms[roomId].peersCountLock.Lock()
@@ -164,6 +178,7 @@ func addPeer(roomId string, peerId string, offerStr string, conn *amqp.Connectio
 	log.Println("Set OnTrack callback")
 	peer.connection.OnTrack(func(remoteTrack *webrtc.Track, receiver *webrtc.RTPReceiver) {
 		if remoteTrack.PayloadType() == webrtc.DefaultPayloadTypeVP8 || remoteTrack.PayloadType() == webrtc.DefaultPayloadTypeVP9 || remoteTrack.PayloadType() == webrtc.DefaultPayloadTypeH264 {
+			log.Println("New video track")
 			// Send a PLI on an interval so that the publisher is pushing a keyframe every rtcpPLIInterval
 			go func() {
 				ticker := time.NewTicker(rtcpPLIInterval)
@@ -178,34 +193,44 @@ func addPeer(roomId string, peerId string, offerStr string, conn *amqp.Connectio
 					}
 				}
 			}()
-			rtpBuf := make([]byte, 1400)
 			for {
-				i, err := remoteTrack.Read(rtpBuf)
-				if err != nil {
+				packet, readErr := remoteTrack.ReadRTP()
+				// i, err := remoteTrack.Read(rtpBuf)
+				if readErr != nil {
 					panic(err)
 				}
 				roomsLock.RLock()
 				rooms[roomId].peersLock.RLock()
 				for _, v := range rooms[roomId].peers {
+					if v.peerNo != peer.peerNo && v.connected {
+						// log.Printf("Boom from %d to %d", peer.peerNo, v.peerNo)
 						peer.videoTrackLock.RLock()
 						v.videoTrackLock.RLock()
-						_, err = v.videoTracks[peer.peerNo].Write(rtpBuf[:i])
-						if err != nil {
-							panic(err)
+						packet.SSRC = v.videoTracks[peer.peerNo].SSRC()
+						if writeErr := v.videoTracks[peer.peerNo].WriteRTP(packet); writeErr != nil && !errors.Is(writeErr, io.ErrClosedPipe) {
+							panic(writeErr)
 						}
 						v.videoTrackLock.RUnlock()
 						peer.videoTrackLock.RUnlock()
 					}
 				}
-				if err != io.ErrClosedPipe {
-					panic(err)
-				}
-		} 
+				rooms[roomId].peersLock.RUnlock()
+				roomsLock.RUnlock()
+			}
+		}
 	})
 
 	peer.connection.OnICEConnectionStateChange(func(connectionState webrtc.ICEConnectionState) {
 		log.Printf("Connection State has changed %s \n", connectionState.String())
+		if connectionState == webrtc.ICEConnectionStateConnected {
+			peer.connected = true
+		} else {
+			peer.connected = false
+		}
 	})
+
+	log.Println("Set remote description")
+	peer.connection.SetRemoteDescription(offer)
 
 	log.Println("Create answer")
 	answer, err := peer.connection.CreateAnswer(nil)
@@ -216,20 +241,6 @@ func addPeer(roomId string, peerId string, offerStr string, conn *amqp.Connectio
 	// Sets the LocalDescription, and starts our UDP listeners
 	log.Println("Set local description")
 	err = peer.connection.SetLocalDescription(answer)
-
-	peer.peerChannel, err = conn.Channel()
-	if err != nil {
-		panic(err)
-	}
-	peerQueue, err := peer.peerChannel.QueueDeclare(
-		peerId, // name
-		false,  // durable
-		false,  // delete when unused
-		false,  // exclusive
-		false,  // no-wait
-		nil,    // arguments
-	)
-	peer.peerQueue = &peerQueue
 
 	roomsLock.RLock()
 	rooms[roomId].peersLock.Lock()
@@ -263,6 +274,7 @@ func addPeer(roomId string, peerId string, offerStr string, conn *amqp.Connectio
 	if err != nil {
 		panic(err)
 	}
+	log.Println("Done")
 }
 
 func addICECandidate(roomId string, peerId string, iceStr string) {

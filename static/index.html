@@ -27,6 +27,8 @@
     let ws_url = "ws://localhost:3000/";
 
     async function joinRoom() {
+      var remoteICE = []
+      var hasRemoteOffer = false
       const socket = io(ws_url, {
         transports: ['websocket']
       });
@@ -51,8 +53,7 @@
               username: "guest",
               credential: "guest"
             }
-          ],
-          iceCandidatePoolSize: 10
+          ]
         });
 
         pc.oniceconnectionstatechange = e => {
@@ -64,15 +65,13 @@
           console.log("negotiation needed");
         }
 
-        pc.ontrack = function (transceiver) {
+        pc.ontrack = function (event) {
           console.log("New track");
-          console.log(transceiver)
-          var track = transceiver.receiver.track;
-          var el = document.createElement(track.kind)
-          el.srcObject = new MediaStream([track])
+          console.log(event)
+          var el = document.createElement(event.track.kind)
+          el.srcObject = event.streams[0]
           el.autoplay = true
-          el.controls = false 
-          track.onmute = () => el.srcObject = null;
+          el.controls = true
 
           document.getElementById('remoteVideos').appendChild(el)
         }
@@ -88,30 +87,29 @@
               "ice": cand
             }));
           } else {
-            let offer = btoa(JSON.stringify(pc.localDescription));
-            console.log(pc.localDescription)
-            console.log("Local offer");
-            console.log(offer);
-            await socket.emit('join_room', JSON.stringify({
-              "roomId": roomId,
-              "uid": clientId,
-              "offer": offer
-            }));
-            console.log("Sent offer");
             console.log("Finished gathering candidates");
           }
         }
 
+        pc.onaddstream = (evt) => console.log(evt);
+
         socket.on('exchange_ice', (msg) => {
           console.log("New remote ICE candidate");
           var enc = new TextDecoder("utf-8");
-          // console.log(enc.decode(msg));
           var ice = JSON.parse(atob(enc.decode(msg)));
           console.log(ice);
-          pc.addIceCandidate(ice);
+          if (hasRemoteOffer) {
+            pc.addIceCandidate(ice).catch(err => {
+              console.warn("Failed to add remote ICE candidate");
+              console.warn(err);
+
+            });
+          } else {
+            remoteICE.push(ice);
+          }
         });
 
-        socket.on('remote_offer', (msg) => {
+        socket.on('remote_offer', async (msg) => {
           console.log("Got offer");
           var enc = new TextDecoder("utf-8");
           // console.log(enc.decode(msg));
@@ -119,15 +117,42 @@
           var descr = JSON.parse(atob(data.data));
           console.log(descr);
           var rtcDescr = new RTCSessionDescription(descr);
-          pc.setRemoteDescription(rtcDescr);
-          console.log(pc.remoteDescription);
+          pc.setRemoteDescription(rtcDescr).catch(err => {
+            console.warn("Failed to set remote description");
+            console.warn(err)
+          })
+          remoteICE.forEach((ice) => pc.addIceCandidate(ice));
+          // console.log(pc.remoteDescription);
         });
 
         try {
-          const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+          const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
           console.log("Created stream");
-          stream.getTracks().forEach((track) => pc.addTransceiver(track, {direction: "sendonly"}));
+          stream.getTracks().forEach((track) => {
+            pc.addTrack(track, stream)
+            var el = document.createElement(track.kind)
+            el.srcObject = new MediaStream([track])
+            el.autoplay = true
+            el.controls = false
+            track.onmute = () => el.srcObject = null;
+
+            document.getElementById('remoteVideos').appendChild(el)
+          });
+          pc.addTransceiver("video");
+          pc.addTransceiver("video");
+          pc.addTransceiver("video");
+          pc.addTransceiver("video");
           await pc.setLocalDescription(await pc.createOffer());
+          let offer = btoa(JSON.stringify(pc.localDescription));
+          console.log(pc.localDescription)
+          console.log("Local offer");
+          console.log(offer);
+          await socket.emit('join_room', JSON.stringify({
+            "roomId": roomId,
+            "uid": clientId,
+            "offer": offer
+          }));
+          console.log("Sent offer");
         } catch (err) {
           console.log(err);
         }
