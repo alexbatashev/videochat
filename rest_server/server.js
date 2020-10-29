@@ -69,7 +69,9 @@ async function createExpressApp() {
 
   // TODO verify room id matches existing room
 
-  expressApp.post('/user/create', async (req, res, next) => {
+  var router = express.Router()
+
+  router.post('/user/create', async (req, res, next) => {
     const id = uuidv4();
     console.log(id);
     console.log(req.body.name);
@@ -84,7 +86,7 @@ async function createExpressApp() {
     });
   });
 
-  expressApp.post('/rooms/create', async (req, res, next) => {
+  router.post('/rooms/create', async (req, res, next) => {
     const id = uuidv4();
     await hotDBConnection.insert('rooms', [id, []]);
     ch = await rabbitMQ.createChannel();
@@ -102,7 +104,9 @@ async function createExpressApp() {
       "id": id
     });
   });
+  expressApp.use('/', router)
 }
+
 
 async function createHTTPServer() {
   httpServer = http.createServer(expressApp);

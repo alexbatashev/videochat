@@ -3,14 +3,12 @@ services:
   rest:
     build: rest_server
     restart: on-failure
-    ports:
-      - "3000:3000"
+    scale: 3
     depends_on:
       - tarantool
       - mongo
       - rabbitmq
       - prometheus
-      - nginx
       - sfu
     links:
       - rabbitmq
@@ -62,7 +60,9 @@ services:
     build: 
       context: .
       dockerfile: "Dockerfile.nginx"
+    restart: on-failure
     ports:
       - "80:80"
     depends_on:
       - turn 
+      - rest
