@@ -18,6 +18,8 @@ services:
     depends_on:
       - rabbitmq
       - prometheus
+    ports:
+      - "2112:2112"
   tarantool:
     build:
       context: .

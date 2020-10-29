@@ -3,12 +3,14 @@ package main
 import (
 	"encoding/json"
 	"log"
-	"sync"
+	"net/http"
 	"net/url"
+	"sync"
 
-	"github.com/pion/webrtc/v3"
-	"github.com/streadway/amqp"
 	"github.com/pion/sdp/v3"
+	"github.com/pion/webrtc/v3"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/streadway/amqp"
 )
 
 type Peer struct {
@@ -158,5 +160,7 @@ func main() {
 	}()
 
 	log.Printf(" [*] Waiting for messages. To exit press CTRL+C")
+	http.Handle("/metrics", promhttp.Handler())
+	http.ListenAndServe(":2112", nil)
 	<-forever
 }
