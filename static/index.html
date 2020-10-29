@@ -71,7 +71,8 @@
           var el = document.createElement(event.track.kind)
           el.srcObject = event.streams[0]
           el.autoplay = true
-          el.controls = true
+          el.controls = false 
+          el.width = 200
 
           document.getElementById('remoteVideos').appendChild(el)
         }
@@ -134,6 +135,7 @@
             el.srcObject = new MediaStream([track])
             el.autoplay = true
             el.controls = false
+            el.width = 200
             track.onmute = () => el.srcObject = null;
 
             document.getElementById('remoteVideos').appendChild(el)
@@ -182,7 +184,6 @@
       var url = base_url + "/rooms/create";
       var params = "uid=\"" + clientId + "\"";
       http.open('POST', url, true);
-      http.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
       http.onreadystatechange = function () {
         if (http.readyState == 4 && http.status == 200) {
           console.log(http.responseText);

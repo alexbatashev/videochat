@@ -1,13 +1,13 @@
 package main
 
 import (
-	"errors"
 	"encoding/json"
+	"errors"
+	"io"
 	"log"
 	"strconv"
 	"sync"
 	"time"
-	"io"
 
 	"github.com/pion/randutil"
 	"github.com/pion/rtcp"
@@ -162,9 +162,6 @@ func addPeer(roomId string, peerId string, offerStr string, conn *amqp.Connectio
 			panic(err)
 		}
 		_, err = peer.connection.AddTrack(peer.videoTracks[i])
-		// _, err = peer.connection.AddTransceiverFromTrack(peer.videoTracks[i], webrtc.RTPTransceiverInit{
-		// 	Direction: webrtc.RTPTransceiverDirectionSendrecv,
-		// })
 		if err != nil {
 			panic(err)
 		}
@@ -195,7 +192,6 @@ func addPeer(roomId string, peerId string, offerStr string, conn *amqp.Connectio
 			}()
 			for {
 				packet, readErr := remoteTrack.ReadRTP()
-				// i, err := remoteTrack.Read(rtpBuf)
 				if readErr != nil {
 					panic(err)
 				}
@@ -203,7 +199,6 @@ func addPeer(roomId string, peerId string, offerStr string, conn *amqp.Connectio
 				rooms[roomId].peersLock.RLock()
 				for _, v := range rooms[roomId].peers {
 					if v.peerNo != peer.peerNo && v.connected {
-						// log.Printf("Boom from %d to %d", peer.peerNo, v.peerNo)
 						peer.videoTrackLock.RLock()
 						v.videoTrackLock.RLock()
 						packet.SSRC = v.videoTracks[peer.peerNo].SSRC()
