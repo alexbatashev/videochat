@@ -1,9 +1,9 @@
-FROM node:10
+FROM golang
 
-WORKDIR /service
-COPY package.json .
-RUN npm install
-COPY server.js .
+ADD . /src/sfu_server
 
-CMD ["node", "/service/server.js"]
+WORKDIR /src/sfu_server
+RUN go get
+RUN go build
 
+ENTRYPOINT /src/sfu_server/sfu_server

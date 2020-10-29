@@ -2,20 +2,29 @@ version: "3.2"
 services:
   rest:
     build: rest_server
+    restart: on-failure
     ports:
       - "3000:3000"
-    links:
+    depends_on:
       - tarantool
       - mongo
       - rabbitmq
       - prometheus
+      - nginx
+      - sfu
+    links:
+      - rabbitmq
   sfu:
     build: sfu_server
-    links:
+    restart: on-failure
+    depends_on:
       - rabbitmq
       - prometheus
   tarantool:
-    image: "tarantool/tarantool"
+    build:
+      context: .
+      dockerfile: Dockerfile.tarantool
+    command: tarantool /usr/local/share/tarantool/tarantool_init.lua
     environment:
       TARANTOOL_USER_NAME: "tarantool"
       TARANTOOL_USER_PASSWORD: "tarantoolpwd"
@@ -25,16 +34,35 @@ services:
       MONGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD: secret
   rabbitmq:
-    image: "rabbitmq"
+    image: "rabbitmq:3.8.9-management-alpine"
+    ports:
+      - 8080:15672
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:15672"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
   prometheus:
     image: "bitnami/prometheus"
   grafana:
     image: "grafana/grafana"
     ports:
       - "3005:3000"
+  turn:
+    build:
+      context: .
+      dockerfile: Dockerfile.turn
+    ports:
+      - "3478:3478"
+      - "3478:3478/udp"
+      - "50000-50100:50000-50100/udp"
+      - "50000-50100:50000-50100"
+    network_mode: "host"
   nginx:
-    image: "nginx"
+    build: 
+      context: .
+      dockerfile: "Dockerfile.nginx"
     ports:
       - "80:80"
-    volumes:
-      - ./front:/usr/share/nginx/html
+    depends_on:
+      - turn 
