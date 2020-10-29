@@ -1,0 +1,15 @@
+name: E2E
+on: [push]
+
+jobs:
+  chrome:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+      - run: |
+          docker-compose up -d
+          sleep 3m
+      - run: cd e2e && yanrn install
+      - run: yarn jest e2e/runWithSelenium.test.ts
+    env:
+      BROWSER: chrome

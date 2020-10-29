@@ -29,6 +29,9 @@ class Room {
     this.remoteICE = []
     this.socket = null
   }
+  getId() {
+    return this.roomId;
+  }
   async join(clientId, trackCB) {
     console.log(this);
     return new Promise(async (resolve, reject) => {

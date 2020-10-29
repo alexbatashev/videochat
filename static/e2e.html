@@ -1,0 +1,52 @@
+<html>
+
+<head>
+  <title>E2E</title>
+</head>
+
+<body>
+  <button id="start_btn">Start</button>
+  <button id="stop_btn">Stop</button>
+
+  <script src="socket.io.dev.js"></script>
+  <script src="routines.js"></script>
+  <script>
+    var clients = []
+
+    function onTrack(track, stream) {
+    }
+
+    document.getElementById("start_btn").onclick = async () => {
+      var aliceId = await createUser("Alice");
+      var aliceRoomHandle = await createRoom(aliceId.id);
+      clients.push({
+        client: aliceId.id,
+        room: aliceRoomHandle
+      });
+      await aliceRoomHandle.join(aliceId.id, onTrack);
+
+      var bobId = await createUser("Bob");
+      var bobRoomHandle = createRoomWithId(aliceRoomHandle.getId())
+      clients.push({
+        client: bobId.id,
+        room: bobRoomHandle
+      });
+      await bobRoomHandle.join(bobId.id, onTrack)
+
+      var melId = await createUser("Mel");
+      var melRoomHandle = createRoomWithId(aliceRoomHandle.getId())
+      clients.push({
+        client: melId.id,
+        room: melRoomHandle
+      });
+      await melRoomHandle.join(melId.id, onTrack)
+    }
+
+    document.getElementById("stop_btn").onclick = () => {
+      clients.forEach(async (c) => await c.room.leave(c.client));
+    }
+  </script>
+</body>
+
+</html>
+

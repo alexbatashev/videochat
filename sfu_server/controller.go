@@ -159,7 +159,8 @@ func addPeer(roomId string, peerId string, offerStr string, conn *amqp.Connectio
 						if i != peer.peerNo {
 							err := peer.connection.WriteRTCP([]rtcp.Packet{&rtcp.PictureLossIndication{MediaSSRC: peer.videoTracks[i].SSRC()}})
 							if err != nil {
-								panic(err)
+								// Just stop transmitting
+								break;
 							}
 						}
 					}
