@@ -2,6 +2,7 @@ version: "3.2"
 services:
   rest:
     build: rest_server
+    image: videochat_rest:latest
     restart: on-failure
     scale: 3
     depends_on:
@@ -14,6 +15,7 @@ services:
       - rabbitmq
   sfu:
     build: sfu_server
+    image: videochat_sfu:latest
     restart: on-failure
     depends_on:
       - rabbitmq
@@ -24,6 +26,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.tarantool
+    image: videochat_tarantool:latest
     command: tarantool /usr/local/share/tarantool/tarantool_init.lua
     environment:
       TARANTOOL_USER_NAME: "tarantool"
@@ -48,16 +51,19 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.prometheus
+    image: videochat_prometheus:latest
   grafana:
     build:
       context: .
       dockerfile: Dockerfile.grafana
+    image: videochat_grafana:latest
     ports:
       - "3005:3000"
   turn:
     build:
       context: .
       dockerfile: Dockerfile.turn
+    image: videochat_turn:latest
     ports:
       - "3478:3478"
       - "3478:3478/udp"
@@ -68,6 +74,7 @@ services:
     build: 
       context: .
       dockerfile: "Dockerfile.nginx"
+    image: videochat_nginx:latest
     restart: on-failure
     ports:
       - "80:80"
