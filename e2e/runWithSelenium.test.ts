@@ -32,6 +32,7 @@ function delay(ms: number) {
 }
 
 it("E2E", async () => {
+  this.timeout(50000)
   await driver.get('http://localhost/test.html');
   assert.strictEqual(await driver.getTitle(), "E2E");
   await driver.findElement(webdriver.By.id("start_btn")).click()
