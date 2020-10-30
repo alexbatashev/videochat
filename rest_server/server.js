@@ -20,6 +20,7 @@ run();
 var expressApp;
 var httpServer;
 var coldDBConnection;
+var coldDBHandle;
 var socketConn;
 var io;
 
@@ -81,6 +82,16 @@ async function createExpressApp() {
       req.body.name
     ]);
 
+    let coldCollection = coldDBHandle.collection("users");
+    coldCollection.insertOne({
+      id: id,
+      name: req.body.name
+    }, function (err, _) {
+      if (err) {
+        console.log(err);
+      }
+    })
+
     res.status(200).json({
       "id": id
     });
@@ -88,7 +99,7 @@ async function createExpressApp() {
 
   router.post('/rooms/create', async (req, res, next) => {
     const id = uuidv4();
-    await hotDBConnection.insert('rooms', [id, []]);
+    await hotDBConnection.insert('rooms', [id, [], 0]);
     ch = await rabbitMQ.createChannel();
     await ch.assertQueue("sfu", {
       "durable": false
@@ -116,9 +127,13 @@ async function createHTTPServer() {
 }
 
 async function createMongoConnection() {
-  MongoClient.connect("mongodb://mongo:27017", function (_, client) {
-    coldDBConnection = client;
-  });
+  return new Promise(function (resolve, _) {
+    MongoClient.connect("mongodb://root:secret@mongo:27017", function (_, client) {
+      coldDBConnection = client;
+      coldDBHandle = client.db("videochat_db");
+      resolve();
+    });
+  })
 }
 
 async function createRabbitMQConnection() {
@@ -132,21 +147,32 @@ async function createRabbitMQConnection() {
 
 async function createSocketConn() {
   io = socketIO.listen(httpServer);
-  io.sockets.on('connection', async function (socket) {
+  io.sockets.on('connection', async (socket) => {
     console.log("New socket connection");
     var ch = null;
     socket.on("handshake", async (msg) => {
       var data = JSON.parse(msg);
       console.log("Handshake");
       console.log(data);
-        console.log("Creating channel")
-        ch = await rabbitMQ.createChannel();
-        await ch.assertQueue("sfu", {
-          "durable": false
-        });
-        console.log("Created channel connection");
+      console.log("Creating channel")
+      ch = await rabbitMQ.createChannel();
+      await ch.assertQueue("sfu", {
+        "durable": false
+      });
+      console.log("Created channel connection");
+    });
+    socket.on("exchange_offer", async (msg) => {
+      // TODO implement
+      // 1. Query proper SFU from Tarantool
+      // 2. Notify SFU about incoming offer
     });
     socket.on("join_room", async (msg) => {
+      // TODO refactor.
+      // 0. Split into two steps: add user to room and exchange offers
+      // 1. Assign session ID to user.
+      // 2. Add new session to Tarantool.
+      // 3. Add new entry to room Tarantool record.
+      // 4. Send back session ID.
       console.log("A peer is trying to join room");
       var data = JSON.parse(msg);
       console.log(data);
@@ -224,7 +250,7 @@ async function createSocketConn() {
           "command": "remove_peer",
           "roomId": data.roomId,
           "peerId": data.uid,
-          "data": "" 
+          "data": ""
         }
       )));
     });
