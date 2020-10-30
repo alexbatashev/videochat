@@ -1,27 +1,23 @@
 // e2e/runWithSelenium.ts
 import webdriver from "selenium-webdriver";
 import assert from "assert";
-import path from "path";
 
 let driver: webdriver.WebDriver;
 
 beforeAll(async () => {
   let capabilities: webdriver.Capabilities;
-  switch (process.env.BROWSER || "chrome") {
-    case "chrome": {
-      require("chromedriver");
-      capabilities = webdriver.Capabilities.chrome();
-      capabilities.set("chromeOptions", {
-        args: [
-          "--headless",
-          "--no-sandbox",
-          "--disable-gpu",
-          "--window-size=1980,1200"
-        ]
-      });
-      break;
-    }
-  }
+  require("chromedriver");
+  capabilities = webdriver.Capabilities.chrome();
+  capabilities.set("chromeOptions", {
+    args: [
+      "--headless",
+      "--no-sandbox",
+      "--disable-gpu",
+      "--window-size=1980,1200",
+      "--use-fake-ui-for-media-stream",
+      "--use-fake-device-for-media-stream"
+    ]
+  });
   driver = await new webdriver.Builder()
     .withCapabilities(capabilities)
     .build();
@@ -36,9 +32,9 @@ function delay(ms: number) {
 }
 
 it("E2E", async () => {
-  await driver.get('http://localhost/e2e.html');
+  await driver.get('http://localhost/test.html');
   assert.strictEqual(await driver.getTitle(), "E2E");
   await driver.findElement(webdriver.By.id("start_btn")).click()
-  await delay(300);
+  await delay(1200);
   await driver.findElement(webdriver.By.id("stop_btn")).click()
 });
