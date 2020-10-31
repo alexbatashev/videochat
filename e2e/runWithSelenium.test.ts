@@ -14,6 +14,7 @@ beforeAll(async () => {
       "--no-sandbox",
       "--disable-gpu",
       "--window-size=1980,1200",
+      "--disable-dev-shm-usage",
       "--use-fake-ui-for-media-stream",
       "--use-fake-device-for-media-stream"
     ]
