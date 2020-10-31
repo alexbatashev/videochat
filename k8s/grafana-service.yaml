@@ -2,17 +2,17 @@ apiVersion: v1
 kind: Service
 metadata:
   annotations:
-    kompose.cmd: /Users/alex/bin/kompose convert -o k8s
-    kompose.version: 1.21.0 (992df58d8)
+    kompose.cmd: /home/alex/bin/kompose convert -o k8s
+    kompose.version: 1.17.0 (HEAD)
   creationTimestamp: null
   labels:
     io.kompose.service: grafana
   name: grafana
 spec:
   ports:
-  - name: "3005"
-    port: 3005
-    targetPort: 3000
+    - name: "GUI"
+      port: 3005
+      targetPort: 3000
   selector:
     io.kompose.service: grafana
 status:

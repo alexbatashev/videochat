@@ -2,8 +2,8 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   annotations:
-    kompose.cmd: /Users/alex/bin/kompose convert -o k8s
-    kompose.version: 1.21.0 (992df58d8)
+    kompose.cmd: kompose convert -o k8s
+    kompose.version: 1.17.0 (HEAD)
   creationTimestamp: null
   labels:
     io.kompose.service: grafana
@@ -17,20 +17,17 @@ spec:
   template:
     metadata:
       annotations:
-        kompose.cmd: /Users/alex/bin/kompose convert -o k8s
-        kompose.version: 1.21.0 (992df58d8)
+        kompose.cmd: kompose convert -o k8s
+        kompose.version: 1.17.0 (HEAD)
       creationTimestamp: null
       labels:
         io.kompose.service: grafana
     spec:
       containers:
-      - image: grafana
-        imagePullPolicy: ""
-        name: grafana
-        ports:
-        - containerPort: 3000
-        resources: {}
+        - image: itcoursevideochat/grafana:latest
+          name: grafana
+          ports:
+            - containerPort: 3000
+          resources: {}
       restartPolicy: Always
-      serviceAccountName: ""
-      volumes: null
 status: {}

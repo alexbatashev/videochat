@@ -2,8 +2,8 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   annotations:
-    kompose.cmd: /Users/alex/bin/kompose convert -o k8s
-    kompose.version: 1.21.0 (992df58d8)
+    kompose.cmd: kompose convert -o k8s
+    kompose.version: 1.17.0 (HEAD)
   creationTimestamp: null
   labels:
     io.kompose.service: tarantool
@@ -17,26 +17,23 @@ spec:
   template:
     metadata:
       annotations:
-        kompose.cmd: /Users/alex/bin/kompose convert -o k8s
-        kompose.version: 1.21.0 (992df58d8)
+        kompose.cmd: kompose convert -o k8s
+        kompose.version: 1.17.0 (HEAD)
       creationTimestamp: null
       labels:
         io.kompose.service: tarantool
     spec:
       containers:
-      - args:
-        - tarantool
-        - /usr/local/share/tarantool/tarantool_init.lua
-        env:
-        - name: TARANTOOL_USER_NAME
-          value: tarantool
-        - name: TARANTOOL_USER_PASSWORD
-          value: tarantoolpwd
-        image: tarantool
-        imagePullPolicy: ""
-        name: tarantool
-        resources: {}
+        - args:
+            - tarantool
+            - /usr/local/share/tarantool/tarantool_init.lua
+          env:
+            - name: TARANTOOL_USER_NAME
+              value: tarantool
+            - name: TARANTOOL_USER_PASSWORD
+              value: tarantoolpwd
+          image: itcoursevideochat/tarantool:latest
+          name: tarantool
+          resources: {}
       restartPolicy: Always
-      serviceAccountName: ""
-      volumes: null
 status: {}

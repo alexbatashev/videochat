@@ -25,7 +25,7 @@ if not box.space.sessions then
     { name = 'duration', type = 'unsigned' },
     { name = 'user_id', type = 'uuid' }
   })
-  box.space.rooms:create_index('primary', {
+  box.space.sessions:create_index('primary', {
     type = 'hash',
     parts = { 'id' }
   })
@@ -36,7 +36,7 @@ if not box.space.rooms then
   box.space.rooms:format({
     { name = 'id', type = 'uuid' },
     { name = 'participants', type = 'array' },
-    { name = 'currentCount', type = 'int' }
+    { name = 'currentCount', type = 'integer' }
   })
   box.space.rooms:create_index('primary', {
     type = 'hash',
