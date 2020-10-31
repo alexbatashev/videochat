@@ -1,5 +1,11 @@
-name: E2E
-on: [push]
+name: Workflow 
+on: 
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
 
 jobs:
   chrome:
@@ -10,6 +16,6 @@ jobs:
           docker-compose up -d
           sleep 1m
       - run: cd e2e && yarn install
-      - run: cd e2e && yarn jest runWithSelenium.test.ts
+      - run: cd e2e && yarn jest --verbose runWithSelenium.test.ts
     env:
       BROWSER: chrome
