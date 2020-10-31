@@ -12,10 +12,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v1
-      - run: |
-          docker-compose up -d
-          sleep 1m
+      - run: docker-compose build
+      - run: docker-compose up -d
+      # TODO re-enable this test
+      - run: sleep 1m
       - run: cd e2e && yarn install
       - run: cd e2e && yarn jest --verbose runWithSelenium.test.ts
+      - name: Login to DockerHub
+        uses: docker/login-action@v1 
+        if: ${{ github.event_name == 'push' }}
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - run: docker-compose push
     env:
       BROWSER: chrome
