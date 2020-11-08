@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  annotations:
+    kompose.cmd: kompose convert -o k8s
+    kompose.version: 1.17.0 (HEAD)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: sfu
+  name: sfu
+spec:
+  containers:
+    - image: itcoursevideochat/sfu:latest
+      name: sfu
+      resources: {}
+  restartPolicy: OnFailure
+status: {}

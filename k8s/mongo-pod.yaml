@@ -1,22 +1,23 @@
-apiVersion: v1
 kind: Pod
+apiVersion: v1
 metadata:
-  annotations:
-    kompose.cmd: kompose convert -o k8s
-    kompose.version: 1.17.0 (HEAD)
-  creationTimestamp: null
-  labels:
-    io.kompose.service: mongo
   name: mongo
+  labels:
+    k8s-app: mongo
 spec:
   containers:
-    - env:
-        - name: MONGO_INITDB_ROOT_PASSWORD
-          value: secret
+    - name: mongo
+      image: mongo
+      env:
         - name: MONGO_INITDB_ROOT_USERNAME
           value: root
-      image: mongo
-      name: mongo
+        - name: MONGO_INITDB_ROOT_PASSWORD
+          value: secret
       resources: {}
-  restartPolicy: OnFailure
+  restartPolicy: Always
+  terminationGracePeriodSeconds: 30
+  dnsPolicy: ClusterFirst
+  priority: 0
+  enableServiceLinks: true
+  preemptionPolicy: PreemptLowerPriority
 status: {}

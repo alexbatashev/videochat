@@ -1,17 +1,17 @@
 kind: Service
 apiVersion: v1
 metadata:
-  name: rabbitmq
+  name: rest
   labels:
-    k8s-app: rabbitmq
+    k8s-app: rest
 spec:
   ports:
-    - name: tcp-5672-5672-tb9gn
+    - name: tcp-3000-3000-mstrq
       protocol: TCP
-      port: 5672
-      targetPort: 5672
+      port: 3000
+      targetPort: 3000
   selector:
-    k8s-app: rabbitmq
+    k8s-app: rest
   type: ClusterIP
   sessionAffinity: None
 status:

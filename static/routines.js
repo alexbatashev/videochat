@@ -1,5 +1,5 @@
-const base_url = "http://localhost/api";
-const ws_url = "ws://localhost/";
+const base_url = "http://" + window.location.hostname + "/api";
+const ws_url = "ws://" + window.location.hostname  + "/";
 
 async function createUser(username) {
   return new Promise(function (resolve, reject) {
@@ -24,8 +24,8 @@ async function createUser(username) {
 class Room {
   constructor(roomId) {
     this.roomId = roomId
-    this.pc = null 
-    this.hasRemoteOffer = false 
+    this.pc = null
+    this.hasRemoteOffer = false
     this.remoteICE = []
     this.socket = null
   }
