@@ -1,17 +1,17 @@
 kind: Service
 apiVersion: v1
 metadata:
-  name: rabbitmq
+  name: mongo
   labels:
-    k8s-app: rabbitmq
+    k8s-app: mongo
 spec:
   ports:
-    - name: tcp-5672-5672-tb9gn
+    - name: tcp-27017-27017-qjnlr
       protocol: TCP
-      port: 5672
-      targetPort: 5672
+      port: 27017
+      targetPort: 27017
   selector:
-    k8s-app: rabbitmq
+    k8s-app: mongo
   type: ClusterIP
   sessionAffinity: None
 status:

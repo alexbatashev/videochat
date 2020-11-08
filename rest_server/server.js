@@ -10,7 +10,7 @@ const bodyParser = require('body-parser');
 const express = require('express');
 const Tarantool = require('tarantool-driver');
 const MongoClient = require('mongodb').MongoClient;
-const { v4: uuidv4 } = require('uuid');
+const uuid = require('uuid');
 const socketIO = require('socket.io');
 const amqp = require('amqplib');
 const { exit } = require('process');
@@ -73,7 +73,7 @@ async function createExpressApp() {
   var router = express.Router()
 
   router.post('/user/create', async (req, res, next) => {
-    const id = uuidv4();
+    const id = uuid.v4();
     console.log(id);
     console.log(req.body.name);
     console.log(req.body);
@@ -98,7 +98,7 @@ async function createExpressApp() {
   });
 
   router.post('/rooms/create', async (req, res, next) => {
-    const id = uuidv4();
+    const id = uuid.v4();
     await hotDBConnection.insert('rooms', [id, [], 0]);
     ch = await rabbitMQ.createChannel();
     await ch.assertQueue("sfu", {

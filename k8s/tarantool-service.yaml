@@ -1,17 +1,17 @@
 kind: Service
 apiVersion: v1
 metadata:
-  name: rabbitmq
+  name: tarantool
   labels:
-    k8s-app: rabbitmq
+    k8s-app: tarantool
 spec:
   ports:
-    - name: tcp-5672-5672-tb9gn
+    - name: tcp-3301-3301-tcp
       protocol: TCP
-      port: 5672
-      targetPort: 5672
+      port: 3301
+      targetPort: 3301
   selector:
-    k8s-app: rabbitmq
+    k8s-app: tarantool
   type: ClusterIP
   sessionAffinity: None
 status:

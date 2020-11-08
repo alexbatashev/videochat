@@ -1,15 +1,15 @@
 kind: Pod
 apiVersion: v1
 metadata:
-  name: nginx
+  name: grafana
   labels:
-    k8s-app: nginx
+    k8s-app: grafana
 spec:
   containers:
-    - name: nginx
-      image: 'itcoursevideochat/nginx:latest'
+    - name: grafana
+      image: 'itcoursevideochat/grafana:latest'
       ports:
-        - containerPort: 80
+        - containerPort: 3000
   restartPolicy: Always
   enableServiceLinks: true
 status: {}

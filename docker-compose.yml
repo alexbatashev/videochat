@@ -68,7 +68,7 @@ services:
       - "50000-50100:50000-50100"
     network_mode: "host"
   nginx:
-    build: 
+    build:
       context: .
       dockerfile: "Dockerfile.nginx"
     image: itcoursevideochat/nginx:latest
@@ -76,5 +76,5 @@ services:
     ports:
       - "80:80"
     depends_on:
-      - turn 
+      - turn
       - rest

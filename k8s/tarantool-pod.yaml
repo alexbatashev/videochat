@@ -1,0 +1,28 @@
+kind: Pod
+apiVersion: v1
+metadata:
+  name: tarantool
+  labels:
+    k8s-app: tarantool
+spec:
+  containers:
+    - name: tarantool
+      image: 'itcoursevideochat/tarantool:latest'
+      args:
+        - tarantool
+        - /usr/local/share/tarantool/tarantool_init.lua
+      env:
+        - name: TARANTOOL_USER_NAME
+          value: tarantool
+        - name: TARANTOOL_USER_PASSWORD
+          value: tarantoolpwd
+      ports:
+        - containerPort: 3301
+      resources: {}
+  restartPolicy: Always
+  terminationGracePeriodSeconds: 30
+  dnsPolicy: ClusterFirst
+  priority: 0
+  enableServiceLinks: true
+  preemptionPolicy: PreemptLowerPriority
+status: {}
