@@ -58,8 +58,8 @@ services:
       - "3005:3000"
   turn:
     build:
-      context: .
-      dockerfile: Dockerfile.turn
+      context: turn
+      dockerfile: Dockerfile
     image: itcoursevideochat/turn:latest
     ports:
       - "3478:3478"

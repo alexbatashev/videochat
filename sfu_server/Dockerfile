@@ -1,4 +1,4 @@
-FROM golang
+FROM golang:1.15-alpine3.12
 
 ADD . /src/sfu_server
 

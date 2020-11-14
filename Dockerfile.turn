@@ -1,3 +1,0 @@
-FROM instrumentisto/coturn
-
-COPY configs/turnserver.conf /etc/coturn/turnserver.conf
