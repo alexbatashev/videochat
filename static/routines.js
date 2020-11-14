@@ -49,19 +49,9 @@ class Room {
           }
         ));
 
+        const iceServers = await getICEServersConfiguration();
         this.pc = new RTCPeerConnection({
-          iceServers: [
-            {
-              urls: 'stun:localhost:3478',
-              username: "guest",
-              credential: "guest"
-            },
-            {
-              urls: "turn:localhost:3478",
-              username: "guest",
-              credential: "guest"
-            }
-          ]
+          iceServers: iceServers
         });
 
         this.pc.oniceconnectionstatechange = e => {
@@ -194,4 +184,22 @@ async function createRoom(ownerId) {
     }
     http.send(params);
   })
+}
+
+async function getICEServersConfiguration() {
+  return new Promise(function (resolve, reject) {
+    var http = new XMLHttpRequest();
+    var url = base_url + "/ice_servers";
+    http.open('GET', url, true);
+    http.onload = function () {
+      if (http.status == 200) {
+        console.log(http.responseText);
+        var data = JSON.parse(http.responseText);
+        resolve(data);
+      } else {
+        reject();
+      }
+    }
+    http.send(null);
+  });
 }

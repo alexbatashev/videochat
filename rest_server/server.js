@@ -3,9 +3,7 @@ process.env.DEBUG = process.env.DEBUG || '*INFO* *WARN* *ERROR*';
 
 // TODO config
 
-const fs = require('fs');
 const http = require('http');
-const url = require('url');
 const bodyParser = require('body-parser');
 const express = require('express');
 const Tarantool = require('tarantool-driver');
@@ -14,6 +12,11 @@ const uuid = require('uuid');
 const socketIO = require('socket.io');
 const amqp = require('amqplib');
 const { exit } = require('process');
+const k8s = require('@kubernetes/client-node');
+
+const kc = new k8s.KubeConfig();
+kc.loadFromCluster();
+const k8sApi = kc.makeApiClient(k8s.CoreV1Api);
 
 run();
 
@@ -73,6 +76,9 @@ async function createExpressApp() {
   var router = express.Router()
 
   router.post('/user/create', async (req, res, next) => {
+    // const service = await k8sApi.readNamespacedService("turn", "default");
+    // console.log(service.body.spec.externalIPs);
+
     const id = uuid.v4();
     console.log(id);
     console.log(req.body.name);
@@ -114,6 +120,33 @@ async function createExpressApp() {
     res.status(200).json({
       "id": id
     });
+  });
+  router.get("/ice_servers", async (req, res, next) => {
+    try {
+      const services = await k8sApi.listNamespacedService("default");
+      var found = false;
+      var iceServers = [];
+      services.body.items.forEach(service => {
+        if (service.metadata["name"] === "turn") {
+          const externalIP = service.status.loadBalancer.ingress[0].ip;
+          found = true;
+          iceServers.push({
+            "urls": "stun:" + externalIP + ":3478",
+            "username": "guest",
+            "credential": "guest"
+          });
+          iceServers.push({
+            "urls": "turn:" + externalIP + ":3478",
+            "username": "guest",
+            "credential": "guest"
+          });
+        }
+      });
+      res.status(200).send(JSON.stringify(iceServers));
+    } catch (err) {
+      console.error(err);
+      res.status(500).send(err);
+    }
   });
   expressApp.use('/', router)
 }

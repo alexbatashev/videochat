@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx 
+spec:
+  selector:
+    matchLabels:
+      k8s-app: nginx
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        k8s-app: nginx 
+    spec:
+      containers:
+        - name: nginx
+          image: 'itcoursevideochat/nginx:latest'
+          ports:
+            - containerPort: 80
+          imagePullPolicy: IfNotPresent
+      restartPolicy: Always
+      enableServiceLinks: true

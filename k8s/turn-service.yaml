@@ -6,26 +6,15 @@ metadata:
     k8s-app: turn
 spec:
   ports:
-    - name: tcp-3478-3478-7kfrt
-      protocol: TCP
-      port: 3478
-      targetPort: 3478
-    - name: udp-3478-3478-lkqv9
+    - name: udp-3478-3478
       protocol: UDP
       port: 3478
       targetPort: 3478
-    - name: tcp-5000-5000-7nvkl
-      protocol: TCP
-      port: 5000
-      targetPort: 5000
-    - name: udp-5000-5000-ltc5p
-      protocol: UDP
-      port: 5000
-      targetPort: 5000
   selector:
     k8s-app: turn
-  type: ClusterIP
+  type: LoadBalancer 
   sessionAffinity: None
+  externalTrafficPolicy: Cluster
 status:
   loadBalancer: {}
 

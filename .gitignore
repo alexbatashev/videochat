@@ -133,3 +133,5 @@ dist
 
 sfu_server/sfu_server
 turn/turn
+
+.DS_Store
