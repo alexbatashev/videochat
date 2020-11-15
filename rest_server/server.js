@@ -7,7 +7,7 @@ const http = require('http');
 const bodyParser = require('body-parser');
 const express = require('express');
 const Tarantool = require('tarantool-driver');
-const MongoClient = require('mongodb').MongoClient;
+// const MongoClient = require('mongodb').MongoClient;
 const uuid = require('uuid');
 const socketIO = require('socket.io');
 const amqp = require('amqplib');
@@ -22,8 +22,8 @@ run();
 
 var expressApp;
 var httpServer;
-var coldDBConnection;
-var coldDBHandle;
+// var coldDBConnection;
+// var coldDBHandle;
 var socketConn;
 var io;
 
@@ -41,7 +41,7 @@ var hotDBConnection = new Tarantool({
 
 async function run() {
   await createRabbitMQConnection();
-  await createMongoConnection();
+  // await createMongoConnection();
   await createExpressApp();
   await createHTTPServer();
   await createSocketConn();
@@ -76,36 +76,32 @@ async function createExpressApp() {
   var router = express.Router()
 
   router.post('/user/create', async (req, res, next) => {
-    // const service = await k8sApi.readNamespacedService("turn", "default");
-    // console.log(service.body.spec.externalIPs);
-
     const id = uuid.v4();
     console.log(id);
     console.log(req.body.name);
     console.log(req.body);
-    await hotDBConnection.insert('users', [
-      id,
-      req.body.name
-    ]);
-
-    let coldCollection = coldDBHandle.collection("users");
-    coldCollection.insertOne({
-      id: id,
-      name: req.body.name
-    }, function (err, _) {
-      if (err) {
-        console.log(err);
-      }
-    })
-
-    res.status(200).json({
-      "id": id
-    });
+    try {
+      await hotDBConnection.call('addUser', id, req.body.name);
+      res.status(200).json({
+        "id": id
+      });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({
+        "id": null,
+        "errMsg": "failed to create user"
+      });
+    }
   });
 
   router.post('/rooms/create', async (req, res, next) => {
     const id = uuid.v4();
-    await hotDBConnection.insert('rooms', [id, [], 0]);
+    try {
+      await hotDBConnection.call('createRoom', id);
+    } catch (err) {
+      console.error("Failed to create room with id " + id);
+      console.error(err);
+    }
     ch = await rabbitMQ.createChannel();
     await ch.assertQueue("sfu", {
       "durable": false
@@ -159,16 +155,6 @@ async function createHTTPServer() {
   }).catch(() => { });
 }
 
-async function createMongoConnection() {
-  return new Promise(function (resolve, _) {
-    MongoClient.connect("mongodb://root:secret@mongo:27017", function (_, client) {
-      coldDBConnection = client;
-      coldDBHandle = client.db("videochat_db");
-      resolve();
-    });
-  })
-}
-
 async function createRabbitMQConnection() {
   try {
     rabbitMQ = await amqp.connect('amqp://guest:guest@rabbitmq/');
@@ -195,25 +181,35 @@ async function createSocketConn() {
       console.log("Created channel connection");
     });
     socket.on("exchange_offer", async (msg) => {
-      // TODO implement
-      // 1. Query proper SFU from Tarantool
-      // 2. Notify SFU about incoming offer
+      let data = JSON.parse(msg);
+      await ch.sendToQueue("sfu", Buffer.from(JSON.stringify(
+        {
+          "command": "add_peer",
+          "roomId": data.roomId,
+          "peerId": data.uid,
+          "data": data.offer
+        }
+      )));
     });
     socket.on("join_room", async (msg) => {
-      // TODO refactor.
-      // 0. Split into two steps: add user to room and exchange offers
-      // 1. Assign session ID to user.
-      // 2. Add new session to Tarantool.
-      // 3. Add new entry to room Tarantool record.
-      // 4. Send back session ID.
-      console.log("A peer is trying to join room");
       var data = JSON.parse(msg);
-      console.log(data);
-      var room = await hotDBConnection.select("rooms", "primary", 1, 0, 'eq', [data.roomId]);
-      room[0][1].push(data.uid);
+      const sessionId = uuid.v4();
+      try {
+        await hotDBConnection.call('startSession', sessionId, Date.now(), data.uid);
+      } catch (err) {
+        console.error("Failed to create session with id " + sessionId);
+        console.error(err);
+      }
+      try {
+        await hotDBConnection.call('addRoomParticipant', data.roomId, sessionId);
+      } catch (err) {
+        console.error("Failed to add user with session id " + sessionId + " to room with id " + data.roomId);
+        console.error(err);
+      }
 
-      await hotDBConnection.update("rooms", "primary", [data.roomId], [["=", 1, room[0][1]]]);
-      console.log("Updated db");
+      socket.emit('session_start', JSON.stringify({
+        "sessionId": sessionId
+      }));
 
       try {
         var peerChannel = await rabbitMQ.createChannel();
@@ -241,19 +237,22 @@ async function createSocketConn() {
             }
           }
         });
-
-        await ch.sendToQueue("sfu", Buffer.from(JSON.stringify(
-          {
-            "command": "add_peer",
-            "roomId": data.roomId,
-            "peerId": data.uid,
-            "data": data.offer
-          }
-        )));
-        console.log("Sent request to SFU");
       } catch (err) {
-        console.warn(err);
+        console.error(err);
       }
+
+      //   await ch.sendToQueue("sfu", Buffer.from(JSON.stringify(
+      //     {
+      //       "command": "add_peer",
+      //       "roomId": data.roomId,
+      //       "peerId": data.uid,
+      //       "data": data.offer
+      //     }
+      //   )));
+      //   console.log("Sent request to SFU");
+      // } catch (err) {
+      //   console.warn(err);
+      // }
     });
 
     socket.on("exchange_ice", async (msg) => {
@@ -278,6 +277,7 @@ async function createSocketConn() {
     socket.on("leave_room", async (msg) => {
       console.log("Peer is leaving room");
       var data = JSON.parse(msg);
+      await hotDBConnection.call('removeRoomParticipant', data.roomId, data.sessionId);
       await ch.sendToQueue("sfu", Buffer.from(JSON.stringify(
         {
           "command": "remove_peer",
@@ -286,6 +286,9 @@ async function createSocketConn() {
           "data": ""
         }
       )));
+
+      // TODO set proper duration
+      await hotDBConnection.call('commitSession', data.sessionId, 0);
     });
   });
 }

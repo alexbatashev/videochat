@@ -24,6 +24,7 @@ async function createUser(username) {
 class Room {
   constructor(roomId) {
     this.roomId = roomId
+    this.sessionId = null
     this.pc = null
     this.hasRemoteOffer = false
     this.remoteICE = []
@@ -130,20 +131,29 @@ class Room {
           this.pc.addTransceiver("video");
           this.pc.addTransceiver("video");
           this.pc.addTransceiver("video");
-          await this.pc.setLocalDescription(await this.pc.createOffer());
-          let offer = btoa(JSON.stringify(this.pc.localDescription));
-          console.log(this.pc.localDescription)
-          console.log("Local offer");
-          console.log(offer);
           this.socket.emit('join_room', JSON.stringify({
             "roomId": this.roomId,
-            "uid": clientId,
-            "offer": offer
+            "uid": clientId
           }));
-          console.log("Sent offer");
         } catch (err) {
           console.log(err);
         }
+      });
+      this.socket.on('session_start', async (msg) => {
+        await this.pc.setLocalDescription(await this.pc.createOffer());
+        let offer = btoa(JSON.stringify(this.pc.localDescription));
+        let data = JSON.parse(msg);
+        console.log(this.pc.localDescription)
+        console.log("Local offer");
+        console.log(offer);
+        this.socket.emit('exchange_offer', JSON.stringify({
+            "roomId": this.roomId,
+            "uid": clientId,
+            "offer": offer,
+            "sessionId": data.sessionId
+        }));
+        this.sessionId = data.sessionId;
+        console.log("Sent offer");
       });
       this.socket.connect();
       console.log(this);
@@ -155,7 +165,8 @@ class Room {
       this.pc.close();
       this.socket.emit("leave_room", JSON.stringify({
         "roomId": this.roomId,
-        "uid": clientId
+        "uid": clientId,
+        "sessionId": this.sessionId
       }))
       this.socket.close();
       resolve();

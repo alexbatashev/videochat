@@ -5,6 +5,55 @@ box.cfg
     log_level = 6
 }
 
+function addUser(id, name)
+  box.space.users:insert{id, name}
+  -- TODO store users somewhere
+end
+
+function startSession(id, startTime, userId)
+  box.space.sessions:insert{id, startTime, 0, userId}
+end
+
+function commitSession(id, duration)
+  box.space.sessions:update(id, {{'=', 'duration', duration}})
+  -- TODO send session somewhere
+end
+
+function createRoom(id)
+  box.space.rooms:insert{id, {}, {}, 'sfu'}
+end
+
+function addRoomParticipant(roomId, sessionId)
+  box.begin()
+  local record = box.space.rooms:get({roomId})
+  local participants = record['participants']
+  local active_participants = record['active_participants']
+  table.insert(participants, sessionId)
+  table.insert(active_participants, sessionId)
+  box.space.rooms:update({roomId}, {{'=', 'participants', participants}, {'=', 'active_participants', active_participants}})
+  box.commit()
+end
+
+function tablefind(tab,el)
+  for index, value in pairs(tab) do
+    if value == el then
+    return index
+    end
+  end
+end
+
+
+function removeRoomParticipant(roomId, sessionId)
+  box.begin()
+  local record = box.space.rooms:get(roomId)
+  local active_participants = record['active_participants']
+  local key = tablefind(active_participants, sessionId)
+  table.remove(active_participants, key)
+  box.space.rooms:update(roomId, {{'=', 'active_participants', active_participants}})
+  -- TODO if len(active_participants) is 0, send to clickhouse
+  box.commit()
+end
+
 if not box.space.users then
   box.schema.space.create('users')
   box.space.users:format({
@@ -36,7 +85,8 @@ if not box.space.rooms then
   box.space.rooms:format({
     { name = 'id', type = 'string' },
     { name = 'participants', type = 'array' },
-    { name = 'currentCount', type = 'integer' }
+    { name = 'active_participants', type = 'array' },
+    { name = 'sfu_worker', type = 'string' }
   })
   box.space.rooms:create_index('primary', {
     type = 'hash',
