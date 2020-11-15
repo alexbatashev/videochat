@@ -7,7 +7,8 @@ box.cfg
 
 local mqtt = require('mqtt')
 connection = mqtt.new()
-local ok, emsg = connection:connect({host = 'rabbitmq', port = 5672})
+connection:login_set('guest', 'guest')
+local ok, emsg = connection:connect({host = 'rabbitmq', port = 1883})
 if not ok then
   error('connect ->', emsg)
 end
