@@ -3,7 +3,7 @@
 How-to:
 ```bash
 docker-compose up --build
-chromium-browser --use-fake-ui-for-media-stream --use-fake-device-for-media-stream
+chromium-browser --use-fake-ui-for-media-stream --use-fake-device-for-media-stream --unsafely-treat-insecure-origin-as-secure="http://<Kuber IP>"
 # Or
 chrome.exe --use-fake-ui-for-media-stream --use-fake-device-for-media-stream
 ```

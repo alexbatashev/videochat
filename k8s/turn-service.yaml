@@ -6,10 +6,10 @@ metadata:
     k8s-app: turn
 spec:
   ports:
-    - name: udp-3478-3478
-      protocol: UDP
-      port: 3478
-      targetPort: 3478
+  - name: udp-3478-3478
+    protocol: UDP
+    port: 3478
+    targetPort: 3478
   selector:
     k8s-app: turn
   type: LoadBalancer 

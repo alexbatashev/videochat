@@ -5,15 +5,13 @@ metadata:
   labels:
     k8s-app: rabbitmq
 spec:
+  clusterIP: None
   ports:
-    - name: tcp-5672-5672-tb9gn
-      protocol: TCP
-      port: 5672
-      targetPort: 5672
+   - name: http
+     protocol: TCP
+     port: 15672
+   - name: amqp
+     protocol: TCP
+     port: 5672
   selector:
     k8s-app: rabbitmq
-  type: ClusterIP
-  sessionAffinity: None
-status:
-  loadBalancer: {}
-
