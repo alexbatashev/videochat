@@ -1,4 +1,3 @@
-process.title = 'mediasoup-demo-server';
 process.env.DEBUG = process.env.DEBUG || '*INFO* *WARN* *ERROR*';
 
 // TODO config
@@ -7,7 +6,6 @@ const http = require('http');
 const bodyParser = require('body-parser');
 const express = require('express');
 const Tarantool = require('tarantool-driver');
-// const MongoClient = require('mongodb').MongoClient;
 const uuid = require('uuid');
 const socketIO = require('socket.io');
 const amqp = require('amqplib');
@@ -22,8 +20,6 @@ run();
 
 var expressApp;
 var httpServer;
-// var coldDBConnection;
-// var coldDBHandle;
 var socketConn;
 var io;
 
@@ -240,19 +236,6 @@ async function createSocketConn() {
       } catch (err) {
         console.error(err);
       }
-
-      //   await ch.sendToQueue("sfu", Buffer.from(JSON.stringify(
-      //     {
-      //       "command": "add_peer",
-      //       "roomId": data.roomId,
-      //       "peerId": data.uid,
-      //       "data": data.offer
-      //     }
-      //   )));
-      //   console.log("Sent request to SFU");
-      // } catch (err) {
-      //   console.warn(err);
-      // }
     });
 
     socket.on("exchange_ice", async (msg) => {
