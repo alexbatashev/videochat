@@ -5,6 +5,14 @@ box.cfg
     log_level = 6
 }
 
+local mqtt = require('mqtt')
+connection = mqtt.new()
+connection:login_set('guest', 'guest')
+local ok, emsg = connection:connect({host = 'rabbitmq', port = 1883})
+if not ok then
+  error('connect ->', emsg)
+end
+
 function addUser(id, name)
   box.space.users:insert{id, name}
   -- TODO store users somewhere
@@ -15,12 +23,17 @@ function startSession(id, startTime, userId)
 end
 
 function commitSession(id, duration)
-  box.space.sessions:update(id, {{'=', 'duration', duration}})
+  local t = box.space.sessions:update(id, {{'=', 'duration', duration}})
   -- TODO send session somewhere
+  connection:publish('sessions_exchange', json:encode(t))
 end
 
 function createRoom(id)
-  box.space.rooms:insert{id, {}, {}, 'sfu'}
+  box.space.rooms:insert{id, {}, {}, 0, 'sfu'}
+  local room = {}
+  room['id'] = id
+  room['sfu'] = 'sfu'
+  connection:publish('rooms_exchange', json:encode(room))
 end
 
 function addRoomParticipant(roomId, sessionId)
@@ -30,8 +43,12 @@ function addRoomParticipant(roomId, sessionId)
   local active_participants = record['active_participants']
   table.insert(participants, sessionId)
   table.insert(active_participants, sessionId)
-  box.space.rooms:update({roomId}, {{'=', 'participants', participants}, {'=', 'active_participants', active_participants}})
+  box.space.rooms:update({roomId}, {{'=', 'participants', participants}, {'=', 'active_participants', active_participants}, {'+', 'active_count', 1}})
   box.commit()
+  local part = {}
+  part['room_id'] = roomId
+  part['session_id'] = sessionId
+  connection:publish('participants_exchange', json:encode(part))
 end
 
 function tablefind(tab,el)
@@ -49,9 +66,7 @@ function removeRoomParticipant(roomId, sessionId)
   local active_participants = record['active_participants']
   local key = tablefind(active_participants, sessionId)
   table.remove(active_participants, key)
-  box.space.rooms:update(roomId, {{'=', 'active_participants', active_participants}})
-  -- TODO if len(active_participants) is 0, send to clickhouse
-  box.commit()
+  box.space.rooms:update(roomId, {{'=', 'active_participants', active_participants}, {'-', 'active_count', 1}})
 end
 
 if not box.space.users then
@@ -86,6 +101,7 @@ if not box.space.rooms then
     { name = 'id', type = 'string' },
     { name = 'participants', type = 'array' },
     { name = 'active_participants', type = 'array' },
+    { name = 'active_count', type = 'unsigned' },
     { name = 'sfu_worker', type = 'string' }
   })
   box.space.rooms:create_index('primary', {

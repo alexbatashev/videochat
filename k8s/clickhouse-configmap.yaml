@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: clickhouse-config
+data:
+  config.xml: |
+      <yandex>
+      <rabbitmq>
+          <username>guest</username>
+          <password>guest</password>
+      </rabbitmq>
+      </yandex>
+
+
