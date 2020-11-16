@@ -6,12 +6,13 @@ box.cfg
 }
 
 local mqtt = require('mqtt')
+local json = require('json')
 connection = mqtt.new()
 connection:login_set('guest', 'guest')
 local ok, emsg = connection:connect({host = 'rabbitmq', port = 1883})
-if not ok then
-  error('connect ->', emsg)
-end
+-- if not ok then
+--   error('connect ->', emsg)
+-- end
 
 function addUser(id, name)
   box.space.users:insert{id, name}

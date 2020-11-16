@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: 1.16.0
+description: kubernetes tarantool operator
+name: tarantool-operator
+type: application
+version: 0.0.7
