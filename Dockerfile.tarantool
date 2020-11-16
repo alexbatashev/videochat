@@ -1,4 +1,4 @@
-FROM tarantool/tarantool:2.5
+FROM tarantool/tarantool:latest
 
 # Tarantool binary protocol port
 EXPOSE 3301

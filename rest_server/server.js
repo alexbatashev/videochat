@@ -175,6 +175,7 @@ async function createSocketConn() {
         "durable": false
       });
       console.log("Created channel connection");
+      socket.send("handshake_ok", "ok");
     });
     socket.on("exchange_offer", async (msg) => {
       let data = JSON.parse(msg);

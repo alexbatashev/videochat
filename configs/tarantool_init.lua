@@ -26,7 +26,7 @@ end
 function commitSession(id, duration)
   local t = box.space.sessions:update(id, {{'=', 'duration', duration}})
   -- TODO send session somewhere
-  connection:publish('sessions_exchange', json:encode(t))
+  connection:publish('sessions_exchange', json.encode(t))
 end
 
 function createRoom(id)
@@ -34,7 +34,7 @@ function createRoom(id)
   local room = {}
   room['id'] = id
   room['sfu'] = 'sfu'
-  connection:publish('rooms_exchange', json:encode(room))
+  connection:publish('rooms_exchange', json.encode(room))
 end
 
 function addRoomParticipant(roomId, sessionId)
@@ -49,7 +49,7 @@ function addRoomParticipant(roomId, sessionId)
   local part = {}
   part['room_id'] = roomId
   part['session_id'] = sessionId
-  connection:publish('participants_exchange', json:encode(part))
+  connection:publish('participants_exchange', json.encode(part))
 end
 
 function tablefind(tab,el)

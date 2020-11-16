@@ -29,6 +29,8 @@ class Room {
     this.hasRemoteOffer = false
     this.remoteICE = []
     this.socket = null
+    this.handshakeOk = false
+    this.localICE = []
   }
   getId() {
     return this.roomId;
@@ -80,11 +82,15 @@ class Room {
             console.log("New candidate");
             console.log(event.candidate);
             let cand = btoa(JSON.stringify(event.candidate));
-            this.socket.emit("exchange_ice", JSON.stringify({
-              "roomId": this.roomId,
-              "uid": clientId,
-              "ice": cand
-            }));
+            if (this.handshakeOk) {
+              this.socket.emit("exchange_ice", JSON.stringify({
+                "roomId": this.roomId,
+                "uid": clientId,
+                "ice": cand
+              }));
+            } else {
+              this.localICE.push(cand);
+            }
           } else {
             console.log("Finished gathering candidates");
           }
@@ -103,6 +109,17 @@ class Room {
           } else {
             this.remoteICE.push(ice);
           }
+        });
+
+        this.socket.on('handshake_ok', async (msg) => {
+          this.handshakeOk = true;
+          this.localICE.forEach((cand) => {
+            this.socket.emit("exchange_ice", JSON.stringify({
+              "roomId": this.roomId,
+              "uid": clientId,
+              "ice": cand
+            }));
+          });
         });
 
         this.socket.on('remote_offer', async (msg) => {
