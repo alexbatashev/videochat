@@ -14,15 +14,18 @@ k8s_yaml([
   'k8s/sfu-pod.yaml',
   'k8s/turn-deployment.yaml',
   'k8s/turn-service.yaml',
-  'k8s/clickhouse-service.yaml',
-  'k8s/clickhouse-deployment.yaml',
-  'k8s/clickhouse-configmap.yaml',
-  'k8s/tarantool-cluster.yaml'
+  # 'k8s/clickhouse-service.yaml',
+  # 'k8s/clickhouse-deployment.yaml',
+  # 'k8s/clickhouse-configmap.yaml',
+  'k8s/zookeeper.yaml',
+  'k8s/tarantool-cluster.yaml',
+  'k8s/clickhouse-operator-install.yaml',
+  'k8s/clickhouse-cluster.yaml'
 ])
 
 k8s_yaml(helm('charts/tarantool-operator'))
-# k8s_yaml(helm('charts/tarantool'))
 k8s_kind('ReplicasetTemplate', image_json_path='{.spec.template.spec.containers[0].image}')
+k8s_kind('ClickHouseInstallation', image_json_path='{.spec.templates.podTemplates[0].spec.containers[0].image}')
 
 docker_build('itcoursevideochat/rest', 'rest_server')
 docker_build('itcoursevideochat/sfu', 'sfu_server')
