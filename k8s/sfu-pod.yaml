@@ -9,6 +9,7 @@ spec:
     - name: sfu
       image: 'itcoursevideochat/sfu:latest'
       resources: {}
+      imagePullPolicy: IfNotPresent
   restartPolicy: Always
   terminationGracePeriodSeconds: 30
   dnsPolicy: ClusterFirst
