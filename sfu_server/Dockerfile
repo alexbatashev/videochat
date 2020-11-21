@@ -1,9 +1,27 @@
-FROM golang:1.15-alpine3.12
+# Start from golang base image
+FROM golang:1.15-alpine as builder
 
-ADD . /src/sfu_server
+# Set the current working directory inside the container
+WORKDIR /build
 
-WORKDIR /src/sfu_server
-RUN go get
-RUN go build
+# Copy go.mod, go.sum files and download deps
+COPY go.mod go.sum ./
+RUN go mod download
 
-ENTRYPOINT /src/sfu_server/sfu_server
+# Copy sources to the working directory
+COPY . .
+
+# Build the Go app
+# ARG project
+RUN GOOS=linux CGO_ENABLED=0 GOARCH=amd64 go build -a -v -o server ./cmd/sfu
+
+# Start a new stage from busybox
+FROM busybox:latest
+
+WORKDIR /dist
+
+# Copy the build artifacts from the previous stage
+COPY --from=builder /build/server .
+
+# Run the executable
+CMD ["./server"]
