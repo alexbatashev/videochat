@@ -1,13 +1,12 @@
-module sfu_server
+module github.com/alexbatashev/videochat
 
-go 1.14
+go 1.15
 
 require (
-	github.com/gorilla/websocket v1.4.2
 	github.com/pion/randutil v0.1.0
 	github.com/pion/rtcp v1.2.4
-	github.com/pion/webrtc/v2 v2.2.26
-	github.com/pion/webrtc/v3 v3.0.0-beta.10
-	github.com/pions/webrtc v1.2.0
-	github.com/streadway/amqp v1.0.0
+	github.com/pion/sdp/v3 v3.0.3
+	github.com/pion/webrtc/v3 v3.0.0-beta.13
+	github.com/prometheus/client_golang v1.8.0
+	github.com/streadway/amqp v0.0.0-20190827072141-edfb9018d271
 )

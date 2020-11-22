@@ -95,7 +95,7 @@ spec:
           image: "docker.io/zookeeper:3.6.1"
           resources:
             requests:
-              memory: "4Gi"
+              memory: "1Gi"
               cpu: "1"
           ports:
             - containerPort: 2181
@@ -202,4 +202,4 @@ spec:
           - ReadWriteOnce
         resources:
           requests:
-            storage: 5Gi
+            storage: 1Gi
