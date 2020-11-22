@@ -37,7 +37,6 @@ var hotDBConnection = new Tarantool({
 
 async function run() {
   await createRabbitMQConnection();
-  // await createMongoConnection();
   await createExpressApp();
   await createHTTPServer();
   await createSocketConn();
@@ -153,12 +152,18 @@ async function createHTTPServer() {
 }
 
 async function createRabbitMQConnection() {
-  try {
-    rabbitMQ = await amqp.connect('amqp://guest:guest@rabbitmq/');
-  } catch (msg) {
-    console.warn(msg);
-    exit(1);
-  }
+  return new Promise(function (resolve, reject) {
+    while (true) {
+      try {
+        rabbitMQ = await amqp.connect('amqp://guest:guest@rabbitmq/');
+        break;
+      } catch (msg) {
+        console.warn(msg);
+        setTimeout(() => { }, 500);
+      }
+    }
+    resolve();
+  });
 }
 
 async function createSocketConn() {

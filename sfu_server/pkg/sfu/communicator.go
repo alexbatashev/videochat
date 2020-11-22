@@ -43,7 +43,15 @@ func StartServer(qp QueueProvider, name string, ctrl RoomController) {
 			}
 
 			offer := ctrl.AddPeer(command.RoomId, command.PeerId, peerQueue)
-			err = peerQueue.Write([]byte(offer))
+			peerMsg := PeerMsg{
+				"exchange_offer",
+				command.PeerId,
+				offer,
+				"answer",
+			}
+
+			jsonMsg, err := json.Marshal(peerMsg)
+			err = peerQueue.Write(jsonMsg)
 			if err != nil {
 				log.Print(err)
 				return

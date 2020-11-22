@@ -107,7 +107,9 @@ class Room {
           console.log("Accepting remote offer")
           let enc = new TextDecoder("utf-8");
           let data = JSON.parse(enc.decode(msg))
+          console.log(data);
           let descr = JSON.parse(atob(data.data));
+          console.log(descr);
           let rtcDescr = new RTCSessionDescription(descr);
           await this.pc.setRemoteDescription(rtcDescr);
           const answer = await this.pc.createAnswer();

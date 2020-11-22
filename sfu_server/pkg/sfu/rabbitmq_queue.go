@@ -1,6 +1,9 @@
 package sfu
 
 import (
+	"log"
+	"time"
+
 	"github.com/streadway/amqp"
 )
 
@@ -14,11 +17,22 @@ type RabbitMQQueueProvider struct {
 	Connection *amqp.Connection
 }
 
-func CreateRabbitMQProvider(url string) (*RabbitMQQueueProvider, error) {
-	conn, err := amqp.Dial(url)
-	if err != nil {
-		return nil, err
+func connectToRabbitMQ(uri string) *amqp.Connection {
+	for {
+		conn, err := amqp.Dial(uri)
+
+		if err == nil {
+			return conn
+		}
+
+		log.Println(err)
+		log.Printf("Trying to reconnect to RabbitMQ at %s\n", uri)
+		time.Sleep(500 * time.Millisecond)
 	}
+}
+
+func CreateRabbitMQProvider(url string) (*RabbitMQQueueProvider, error) {
+	conn := connectToRabbitMQ(url)
 
 	return &RabbitMQQueueProvider{conn}, nil
 }
@@ -48,10 +62,10 @@ func (q *RabbitMQQueue) OnMessage(fn message) {
 
 func (q *RabbitMQQueue) Write(msg []byte) error {
 	err := q.Channel.Publish(
-		"", // exchange name
+		"",     // exchange name
 		q.Name, // queue name
-		true, // mandatory
-		false, // immediate
+		true,   // mandatory
+		false,  // immediate
 		amqp.Publishing{
 			ContentType: "text/plain",
 			Body:        msg,
@@ -69,7 +83,7 @@ func (qp *RabbitMQQueueProvider) CreateQueue(name string) (Queue, error) {
 	q, err := ch.QueueDeclare(
 		name,  // name
 		false, // durable
-		false,  // delete when unused
+		false, // delete when unused
 		false, // exclusive
 		false, // no-wait
 		nil,   // arguments
