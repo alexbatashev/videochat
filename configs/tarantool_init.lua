@@ -29,8 +29,8 @@ function commitSession(id, duration)
   connection:publish('sessions_exchange', json.encode(t))
 end
 
-function createRoom(id)
-  box.space.rooms:insert{id, {}, {}, 0, 'sfu'}
+function createRoom(id, sfuName)
+  box.space.rooms:insert{id, {}, {}, 0, sfuName}
   local room = {}
   room['id'] = id
   room['sfu'] = 'sfu'

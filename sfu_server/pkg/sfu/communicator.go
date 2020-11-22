@@ -19,7 +19,9 @@ type PeerMsg struct {
 	OfferKind string
 }
 
-func StartServer(qp QueueProvider, name string, ctrl RoomController) {
+type AddPeerCallback func(direction bool)
+
+func StartServer(qp QueueProvider, name string, ctrl RoomController, fn AddPeerCallback) {
 	q, err := qp.CreateQueue(name)
 	if err != nil {
 		log.Print(err)
@@ -38,6 +40,7 @@ func StartServer(qp QueueProvider, name string, ctrl RoomController) {
 		if command.Command == "create_room" {
 			ctrl.AddRoom(command.RoomId)
 		} else if command.Command == "add_peer" {
+			fn(true)
 			peerQueue, err := qp.CreateQueue(command.PeerId)
 			if err != nil {
 				return
@@ -60,6 +63,7 @@ func StartServer(qp QueueProvider, name string, ctrl RoomController) {
 		} else if command.Command == "exchange_ice" {
 			ctrl.AddICECandidate(command.RoomId, command.PeerId, command.Data)
 		} else if command.Command == "remove_peer" {
+			fn(false)
 			ctrl.RemovePeer(command.RoomId, command.PeerId)
 		} else if command.Command == "remoove_room" {
 			ctrl.RemoveRoom(command.RoomId)
