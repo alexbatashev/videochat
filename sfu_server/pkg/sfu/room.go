@@ -4,7 +4,7 @@ type RoomController interface {
 	AddRoom(roomId string)
 	RemoveRoom(roomId string)
 	AddPeer(roomId string, peerId string, q Queue) string
-	AddICECandidate(roomId string, peerId string, ice string) error
+	AddICECandidate(roomId string, peerId string, ice string)
 	RemovePeer(roomId string, peerId string)
-	GetPeerQueue(roomId string, peerId string) Queue
+	SetRemoteDescription(roomId string, peerId string, offer string)
 }

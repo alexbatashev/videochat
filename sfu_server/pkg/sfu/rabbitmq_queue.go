@@ -7,23 +7,23 @@ import (
 type RabbitMQQueue struct {
 	Name      string
 	RealQueue amqp.Queue
-	Channel   amqp.Channel
+	Channel   *amqp.Channel
 }
 
 type RabbitMQQueueProvider struct {
-	Connection amqp.Connection
+	Connection *amqp.Connection
 }
 
-func CreateRabbitMQProvider(url string) (RabbitMQQueueProvider, error) {
+func CreateRabbitMQProvider(url string) (*RabbitMQQueueProvider, error) {
 	conn, err := amqp.Dial(url)
 	if err != nil {
 		return nil, err
 	}
 
-	return RabbitMQQueueProvider{conn}, nil
+	return &RabbitMQQueueProvider{conn}, nil
 }
 
-func (q RabbitMQQueue) OnMessage(fn message) {
+func (q *RabbitMQQueue) OnMessage(fn message) {
 	go func() {
 		msgs, err := q.Channel.Consume(
 			q.Name, // queue
@@ -46,7 +46,7 @@ func (q RabbitMQQueue) OnMessage(fn message) {
 	}()
 }
 
-func (q RabbitMQQueue) Write(msg string) error {
+func (q *RabbitMQQueue) Write(msg []byte) error {
 	err := q.Channel.Publish(
 		"", // exchange name
 		q.Name, // queue name
@@ -54,13 +54,13 @@ func (q RabbitMQQueue) Write(msg string) error {
 		false, // immediate
 		amqp.Publishing{
 			ContentType: "text/plain",
-			Body:        []byte(msg),
-		}
+			Body:        msg,
+		},
 	)
 	return err
 }
 
-func (qp RabbitMQQueueProvider) CreateQueue(name string) (RabbitMQQueue, error) {
+func (qp *RabbitMQQueueProvider) CreateQueue(name string) (Queue, error) {
 	ch, err := qp.Connection.Channel()
 	if err != nil {
 		return nil, err
@@ -78,7 +78,7 @@ func (qp RabbitMQQueueProvider) CreateQueue(name string) (RabbitMQQueue, error) 
 		return nil, err
 	}
 
-	return RabbitMQQueue{name, q, ch}, nil
+	return &RabbitMQQueue{name, q, ch}, nil
 }
 
 func (qp RabbitMQQueueProvider) Close() {

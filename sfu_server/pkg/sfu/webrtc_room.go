@@ -1,19 +1,17 @@
-package sfu 
+package sfu
 
 import (
 	"sync"
 
 	"github.com/pion/webrtc/v3"
-	"github.com/streadway/amqp"
 )
 
 type Peer struct {
 	id              string
 	connection      *webrtc.PeerConnection
 	videoTrackLocks [4]sync.RWMutex
-	videoTracks     [4]*webrtc.Track
-	peerChannel     *amqp.Channel
-	peerQueue       *amqp.Queue
+	videoTracks     [4]*webrtc.TrackLocalStaticRTP
+	peerQueue       Queue
 	peerNo          int
 	connected       bool
 }
@@ -29,20 +27,20 @@ var rooms map[string]*Room
 var roomsLock = sync.RWMutex{}
 
 type PeerCallback func(*Peer)
-type TrackCallback func(*webrtc.Track)
+type TrackCallback func(*webrtc.TrackLocalStaticRTP)
 
-func initRooms() {
-	rooms = make(map[string]*Room)
-}
+// func initRooms() {
+// 	rooms = make(map[string]*Room)
+// }
 
-func AddRoom(RoomID string) {
-	roomsLock.Lock()
-	rooms[RoomID] = &Room{}
-	rooms[RoomID].peers = make(map[string]*Peer)
-	roomsLock.Unlock()
-}
+// func AddRoom(RoomID string) {
+// 	roomsLock.Lock()
+// 	rooms[RoomID] = &Room{}
+// 	rooms[RoomID].peers = make(map[string]*Peer)
+// 	roomsLock.Unlock()
+// }
 
-func (r *Room) AddPeer(PeerID string, conn *amqp.Connection) *Peer {
+func (r *Room) AddPeer(PeerID string, q Queue) *Peer {
 	peer := &Peer{}
 	peer.id = PeerID
 	peer.connected = false
@@ -51,33 +49,18 @@ func (r *Room) AddPeer(PeerID string, conn *amqp.Connection) *Peer {
 	r.peersCount++
 	r.peersCountLock.Unlock()
 
-	// Set up peer queue
-	// TODO make it die when unused
-	var err error
-	peer.peerChannel, err = conn.Channel()
-	if err != nil {
-		panic(err)
-	}
-	peerQueue, err := peer.peerChannel.QueueDeclare(
-		PeerID, // name
-		false,  // durable
-		false,  // delete when unused
-		false,  // exclusive
-		false,  // no-wait
-		nil,    // arguments
-	)
-	peer.peerQueue = &peerQueue
+	peer.peerQueue = q
 
-	if err != nil {
-		panic(err)
-	}
+	r.peersLock.Lock()
+	r.peers[PeerID] = peer
+	r.peersLock.Unlock()
 
 	return peer
 }
 
-func (peer *Peer) AddTrack(id int, payloadType uint8, ssrc uint32, trackId, label string) (*webrtc.Track, error) {
+func (peer *Peer) AddTrack(id int, trackId, label string) (*webrtc.TrackLocalStaticRTP, error) {
 	peer.videoTrackLocks[id].Lock()
-	track, err := peer.connection.NewTrack(payloadType, ssrc, trackId, label)
+	track, err := webrtc.NewTrackLocalStaticRTP(webrtc.RTPCodecCapability{MimeType: "video/vp8"}, trackId, label)
 	peer.videoTracks[id] = track
 	peer.videoTrackLocks[id].Unlock()
 	return track, err
@@ -94,9 +77,9 @@ func WithEachPeer(roomId string, fn PeerCallback) {
 	// Is it thread safe???
 	room.peersLock.RLock()
 	for _, v := range rooms[roomId].peers {
-		room.peersLock.RUnlock()
+		// room.peersLock.RUnlock()
 		fn(v)
-		room.peersLock.RLock()
+		// room.peersLock.RLock()
 	}
 	room.peersLock.RUnlock()
 }

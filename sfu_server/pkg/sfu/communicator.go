@@ -2,7 +2,7 @@ package sfu
 
 import (
 	"encoding/json"
-	"fmt"
+	"log"
 )
 
 type Message struct {
@@ -22,15 +22,15 @@ type PeerMsg struct {
 func StartServer(qp QueueProvider, name string, ctrl RoomController) {
 	q, err := qp.CreateQueue(name)
 	if err != nil {
-		fmt.Panic(err)
+		log.Print(err)
 	}
 
-	q.OnMessage(func (msg string) {
+	q.OnMessage(func(msg []byte) {
 		command := &Message{}
-		err := json.Unmarshall(msg, command)
+		err := json.Unmarshal(msg, command)
 
 		if err != nil {
-			fmt.Errorf(err)
+			log.Print(err)
 			return
 		}
 
@@ -43,20 +43,19 @@ func StartServer(qp QueueProvider, name string, ctrl RoomController) {
 			}
 
 			offer := ctrl.AddPeer(command.RoomId, command.PeerId, peerQueue)
-			err = peerQueue.Write(offer)
+			err = peerQueue.Write([]byte(offer))
 			if err != nil {
-				fmt.Errorf(err)
+				log.Print(err)
 				return
 			}
 		} else if command.Command == "exchange_ice" {
-			err := ctrl.AddICECandidate(command.RoomId, command.PeerId, command.Data)
-			if err != nil {
-				return
-			}
+			ctrl.AddICECandidate(command.RoomId, command.PeerId, command.Data)
 		} else if command.Command == "remove_peer" {
-			err := ctrl.RemovePeer(command.RoomId, command.PeerId)
+			ctrl.RemovePeer(command.RoomId, command.PeerId)
 		} else if command.Command == "remoove_room" {
-			err := ctrl.RemoveRoom(command.RoomId)
+			ctrl.RemoveRoom(command.RoomId)
+		} else if command.Command == "remote_answer" {
+			// TODO do something
 		}
 	})
 }

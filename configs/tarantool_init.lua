@@ -37,6 +37,11 @@ function createRoom(id)
   connection:publish('rooms_exchange', json.encode(room))
 end
 
+function getRoom(id)
+  local room = box.space.rooms:get{id}
+  return room
+end
+
 function addRoomParticipant(roomId, sessionId)
   box.begin()
   local record = box.space.rooms:get({roomId})
