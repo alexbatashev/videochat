@@ -101,7 +101,7 @@ async function createExpressApp() {
     ch = await rabbitMQ.createChannel();
     await ch.assertQueue("sfu", {
       "durable": false,
-      "autoDelete": true
+      "autoDelete": false 
     });
     var msg = {
       "command": "create_room",
@@ -273,12 +273,12 @@ async function createSocketConn() {
       let sfuChannel = await rabbitMQ.createChannel();
       await sfuChannel.assertQueue(sfu_worker, {
         "durable": false,
-        "autoDelete": true
+        "autoDelete": false 
       });
       let peerChannel = await rabbitMQ.createChannel();
       await peerChannel.assertQueue(data.uid, {
         "durable": false,
-        "autoDelete": true
+        "autoDelete": false 
       });
 
       setPostHandshakeListeners(socket, sfuChannel, sfu_worker, peerChannel, data.uid);

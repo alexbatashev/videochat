@@ -69,7 +69,7 @@ func (qp *RabbitMQQueueProvider) CreateQueue(name string) (Queue, error) {
 	q, err := ch.QueueDeclare(
 		name,  // name
 		false, // durable
-		true,  // delete when unused
+		false,  // delete when unused
 		false, // exclusive
 		false, // no-wait
 		nil,   // arguments
