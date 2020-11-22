@@ -34,6 +34,7 @@ func StartServer(qp QueueProvider, name string, ctrl RoomController) {
 			return
 		}
 
+		log.Printf("New command: %s", command.Command)
 		if command.Command == "create_room" {
 			ctrl.AddRoom(command.RoomId)
 		} else if command.Command == "add_peer" {
@@ -63,7 +64,8 @@ func StartServer(qp QueueProvider, name string, ctrl RoomController) {
 		} else if command.Command == "remoove_room" {
 			ctrl.RemoveRoom(command.RoomId)
 		} else if command.Command == "remote_answer" {
-			// TODO do something
+			log.Printf("Accepting remote answer: %s", command.PeerId)
+			ctrl.SetRemoteDescription(command.RoomId, command.PeerId, command.Data)
 		}
 	})
 }

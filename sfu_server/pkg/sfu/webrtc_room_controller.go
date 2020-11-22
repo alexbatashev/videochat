@@ -10,9 +10,7 @@ import (
 	"time"
 
 	"github.com/alexbatashev/videochat/pkg/signal"
-	// "github.com/pion/randutil"
 	"github.com/pion/rtcp"
-	// "github.com/pion/sdp/v3"
 	"github.com/pion/webrtc/v3"
 )
 
@@ -52,27 +50,10 @@ func CreateWebRTCRoomController() WebRTCRoomController {
 	controller.RoomsLock = sync.RWMutex{}
 	controller.Rooms = make(map[string]*Room)
 
-	// controller.MediaEngine.RegisterCodec(webrtc.NewRTPVP8Codec(webrtc.DefaultPayloadTypeVP8, 90000))
 	controller.MediaEngine.RegisterCodec(webrtc.RTPCodecParameters{
 		RTPCodecCapability: webrtc.RTPCodecCapability{MimeType: "video/VP8", ClockRate: 90000, Channels: 0, SDPFmtpLine: "", RTCPFeedback: nil},
 		PayloadType:        96,
 	}, webrtc.RTPCodecTypeVideo)
-	// controller.MediaEngine.RegisterCodec(webrtc.NewRTPOpusCodec(webrtc.DefaultPayloadTypeOpus, 48000))
-
-	// sdes, _ := url.Parse(sdp.SDESRTPStreamIDURI)
-	// sdedMid, _ := url.Parse(sdp.SDESMidURI)
-	// exts := []sdp.ExtMap{
-	// 	{
-	// 		URI: sdes,
-	// 	},
-	// 	{
-	// 		URI: sdedMid,
-	// 	},
-	// }
-
-	// se := webrtc.SettingEngine{}
-	// se.AddSDPExtensions(webrtc.SDPSectionVideo, exts)
-
 	controller.API = webrtc.NewAPI(webrtc.WithMediaEngine(&controller.MediaEngine))
 
 	return controller
@@ -174,7 +155,6 @@ func (rc *WebRTCRoomController) AddPeer(roomId string, peerId string, q Queue) s
 		}()
 		go func() {
 			for peer.IsConnected() {
-				// packet, readErr := remoteTrack.ReadRTP()
 				rtpBuf := make([]byte, 1400)
 				i, readErr := remoteTrack.Read(rtpBuf)
 				if readErr != nil {
@@ -182,11 +162,12 @@ func (rc *WebRTCRoomController) AddPeer(roomId string, peerId string, q Queue) s
 					log.Println(err)
 					break
 				}
-				WithEachPeer(roomId, func(v *Peer) {
+				rc.RoomsLock.RLock()
+				room := rc.Rooms[roomId]
+				rc.RoomsLock.RUnlock()
+				WithEachPeer(room, func(v *Peer) {
 					if v.peerNo != peer.peerNo && v.IsConnected() {
 						v.WithTrack(peer.peerNo, func(track *webrtc.TrackLocalStaticRTP) {
-							// log.Printf("From %d to %d", peer.peerNo, v.peerNo)
-							// packet.SSRC = track.SSRC()
 							if _, writeErr := track.Write(rtpBuf[:i]); writeErr != nil && !errors.Is(writeErr, io.ErrClosedPipe) {
 								return
 							}
@@ -223,6 +204,7 @@ func (rc *WebRTCRoomController) AddPeer(roomId string, peerId string, q Queue) s
 }
 
 func (rc *WebRTCRoomController) AddICECandidate(roomId string, peerId string, ice string) {
+	log.Printf("Adding new ICE candidate\n")
 	iceCandidate := webrtc.ICECandidateInit{}
 	signal.Decode(ice, &iceCandidate)
 
@@ -286,7 +268,7 @@ func (rc *WebRTCRoomController) SetRemoteDescription(roomId string, peerId strin
 		rc.RoomsLock.RLock()
 		if rc.Rooms[roomId] == nil {
 			rc.RoomsLock.RUnlock()
-			time.Sleep(100 * time.Millisecond)
+			time.Sleep(20 * time.Millisecond)
 		} else {
 			rc.RoomsLock.RUnlock()
 			break
@@ -300,13 +282,15 @@ func (rc *WebRTCRoomController) SetRemoteDescription(roomId string, peerId strin
 		if rc.Rooms[roomId].peers[peerId] == nil {
 			rc.Rooms[roomId].peersLock.RUnlock()
 			rc.RoomsLock.RUnlock()
-			time.Sleep(100 * time.Millisecond)
+			time.Sleep(20 * time.Millisecond)
 		} else {
 			rc.Rooms[roomId].peersLock.RUnlock()
 			rc.RoomsLock.RUnlock()
 			break
 		}
 	}
+
+	log.Print("Accept remote description")
 
 	rc.RoomsLock.RLock()
 	rc.Rooms[roomId].peersLock.RLock()

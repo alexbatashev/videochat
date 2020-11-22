@@ -23,22 +23,8 @@ type Room struct {
 	peersCount     int
 }
 
-var rooms map[string]*Room
-var roomsLock = sync.RWMutex{}
-
 type PeerCallback func(*Peer)
 type TrackCallback func(*webrtc.TrackLocalStaticRTP)
-
-// func initRooms() {
-// 	rooms = make(map[string]*Room)
-// }
-
-// func AddRoom(RoomID string) {
-// 	roomsLock.Lock()
-// 	rooms[RoomID] = &Room{}
-// 	rooms[RoomID].peers = make(map[string]*Peer)
-// 	roomsLock.Unlock()
-// }
 
 func (r *Room) AddPeer(PeerID string, q Queue) *Peer {
 	peer := &Peer{}
@@ -70,16 +56,10 @@ func (peer *Peer) IsConnected() bool {
 	return peer.connected
 }
 
-func WithEachPeer(roomId string, fn PeerCallback) {
-	roomsLock.RLock()
-	room := rooms[roomId]
-	roomsLock.RUnlock()
-	// Is it thread safe???
+func WithEachPeer(room *Room, fn PeerCallback) {
 	room.peersLock.RLock()
-	for _, v := range rooms[roomId].peers {
-		// room.peersLock.RUnlock()
+	for _, v := range room.peers {
 		fn(v)
-		// room.peersLock.RLock()
 	}
 	room.peersLock.RUnlock()
 }

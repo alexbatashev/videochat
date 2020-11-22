@@ -152,7 +152,7 @@ async function createHTTPServer() {
 }
 
 async function createRabbitMQConnection() {
-  return new Promise(function (resolve, reject) {
+  return new Promise(async function (resolve, reject) {
     while (true) {
       try {
         rabbitMQ = await amqp.connect('amqp://guest:guest@rabbitmq/');
@@ -172,10 +172,7 @@ async function createSocketConn() {
     console.log("New socket connection");
     function setPostHandshakeListeners(socket, sfuChannel, sfuQueue, peerChannel, peerQueue) {
       peerChannel.consume(peerQueue, function (msg) {
-        // console.log("Accept message from " + data.uid);
         if (msg !== null) {
-          // console.log("Accept message");
-          // console.log(msg.content.toString());
           const msgString = msg.content.toString();
           var msgObj = JSON.parse(msgString);
           console.log(msgObj)
@@ -201,7 +198,7 @@ async function createSocketConn() {
         try {
           await sfuChannel.sendToQueue(sfuQueue, Buffer.from(JSON.stringify(
             {
-              "command": "exchange_ice",
+              "command": "remote_answer",
               "roomId": data.roomId,
               "peerId": data.uid,
               "data": data.offer
@@ -298,117 +295,4 @@ async function createSocketConn() {
       )));
     });
   });
-  // io.sockets.on('connection', async (socket) => {
-  //   console.log("New socket connection");
-  //   var ch = null;
-  //   socket.on("handshake", async (msg) => {
-  //     var data = JSON.parse(msg);
-  //     console.log("Handshake");
-  //     console.log(data);
-  //     console.log("Creating channel")
-  //     ch = await rabbitMQ.createChannel();
-  //     await ch.assertQueue("sfu", {
-  //       "durable": false
-  //     });
-  //     console.log("Created channel connection");
-  //     socket.send("handshake_ok", "ok");
-  //   });
-  //   socket.on("exchange_offer", async (msg) => {
-  //     let data = JSON.parse(msg);
-  //     await ch.sendToQueue("sfu", Buffer.from(JSON.stringify(
-  //       {
-  //         "command": "add_peer",
-  //         "roomId": data.roomId,
-  //         "peerId": data.uid,
-  //         "data": data.offer
-  //       }
-  //     )));
-  //   });
-  //   socket.on("join_room", async (msg) => {
-  //     var data = JSON.parse(msg);
-  //     const sessionId = uuid.v4();
-  //     try {
-  //       await hotDBConnection.call('startSession', sessionId, Date.now(), data.uid);
-  //     } catch (err) {
-  //       console.error("Failed to create session with id " + sessionId);
-  //       console.error(err);
-  //     }
-  //     try {
-  //       await hotDBConnection.call('addRoomParticipant', data.roomId, sessionId);
-  //     } catch (err) {
-  //       console.error("Failed to add user with session id " + sessionId + " to room with id " + data.roomId);
-  //       console.error(err);
-  //     }
-
-  //     socket.emit('session_start', JSON.stringify({
-  //       "sessionId": sessionId
-  //     }));
-
-  //     try {
-  //       var peerChannel = await rabbitMQ.createChannel();
-  //       await peerChannel.assertQueue(data.uid, {
-  //         "durable": false
-  //       });
-
-  //       peerChannel.consume(data.uid, function (msg) {
-  //         console.log("Accept message from " + data.uid);
-  //         if (msg !== null) {
-  //           var msgObj = JSON.parse(msg.content.toString());
-  //           console.log(msgObj)
-  //           if (msgObj.Command === "exchange_offer") {
-  //             console.log(msgObj);
-  //             socket.emit("remote_offer", Buffer.from(JSON.stringify({
-  //               "data": msgObj.Data,
-  //               "kind": msgObj.OfferKind
-  //             })));
-  //             peerChannel.ack(msg);
-  //           } else if (msgObj.Command === "exchange_ice") {
-  //             console.log(msgObj)
-  //             socket.emit("exchange_ice", Buffer.from(
-  //               msgObj.Data
-  //             ));
-  //           }
-  //         }
-  //       });
-  //     } catch (err) {
-  //       console.error(err);
-  //     }
-  //   });
-
-  //   socket.on("exchange_ice", async (msg) => {
-  //     console.log("A peer is trying to exchange ICE candidates");
-  //     var data = JSON.parse(msg);
-  //     console.log(data);
-
-  //     try {
-  //       await ch.sendToQueue("sfu", Buffer.from(JSON.stringify(
-  //         {
-  //           "command": "exchange_ice",
-  //           "roomId": data.roomId,
-  //           "peerId": data.uid,
-  //           "data": data.ice
-  //         }
-  //       )));
-  //     } catch (err) {
-  //       console.warn(err);
-  //     }
-  //   });
-
-  //   socket.on("leave_room", async (msg) => {
-  //     console.log("Peer is leaving room");
-  //     var data = JSON.parse(msg);
-  //     await hotDBConnection.call('removeRoomParticipant', data.roomId, data.sessionId);
-  //     await ch.sendToQueue("sfu", Buffer.from(JSON.stringify(
-  //       {
-  //         "command": "remove_peer",
-  //         "roomId": data.roomId,
-  //         "peerId": data.uid,
-  //         "data": ""
-  //       }
-  //     )));
-
-  //     // TODO set proper duration
-  //     await hotDBConnection.call('commitSession', data.sessionId, 0);
-  //   });
-  // });
 }
