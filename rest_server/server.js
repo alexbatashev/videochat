@@ -11,6 +11,7 @@ const socketIO = require('socket.io');
 const amqp = require('amqplib');
 const { exit } = require('process');
 const k8s = require('@kubernetes/client-node');
+const zookeeper = require('node-zookeeper-client');
 
 const kc = new k8s.KubeConfig();
 kc.loadFromCluster();
@@ -22,6 +23,7 @@ var expressApp;
 var httpServer;
 var socketConn;
 var io;
+var zkClient;
 
 // TODO should this be global?
 var ch = null;
@@ -36,10 +38,62 @@ var hotDBConnection = new Tarantool({
 });
 
 async function run() {
+  await createZookeeperConnection();
   await createRabbitMQConnection();
   await createExpressApp();
   await createHTTPServer();
   await createSocketConn();
+}
+
+async function createZookeeperConnection() {
+  return new Promise(async (resolve, reject) => {
+    zkClient = zookeeper.createClient('zookeeper:2181');
+    zkClient.once('connected', function () {
+      resolve();
+    });
+    zkClient.connect();
+  });
+}
+
+async function getNumPeers(path) {
+  return new Promise(async (resolve, reject) => {
+    zkClient.getData(path, function (error, data, stat) {
+      if (error) {
+        console.log(error.stack);
+        reject();
+      }
+      console.log(stat);
+
+      const nodeInfo = JSON.parse(data.toString());
+
+      resolve(nodeInfo.NumberOfPeers);
+    });
+  });
+}
+
+async function getBestSFU() {
+  return new Promise(async (resolve, reject) => {
+    zkClient.getChildren("/sfu", async function (error, children, stats) {
+      if (error) {
+        console.warn(error);
+        reject();
+      }
+      console.log(stats);
+
+      var minPeers = 1000000;
+      var minSfu = "";
+      for (const server of children) {
+        const numberOfPeers = await getNumPeers("/sfu/" + server);
+        console.log(numberOfPeers)
+        if (minPeers > numberOfPeers) {
+          minPeers = numberOfPeers;
+          minSfu = server;
+        }
+      }
+
+      resolve(minSfu);
+    });
+  });
 }
 
 async function createExpressApp() {
@@ -90,17 +144,19 @@ async function createExpressApp() {
   });
 
   router.post('/rooms/create', async (req, res, next) => {
+    const sfuName = await getBestSFU();
+    console.log("Best sfu is " + sfuName);
     const id = uuid.v4();
     try {
-      await hotDBConnection.call('createRoom', id);
+      await hotDBConnection.call('createRoom', id, sfuName);
     } catch (err) {
       console.error("Failed to create room with id " + id);
       console.error(err);
     }
     ch = await rabbitMQ.createChannel();
-    await ch.assertQueue("sfu", {
+    await ch.assertQueue(sfuName, {
       "durable": false,
-      "autoDelete": false 
+      "autoDelete": false
     });
     var msg = {
       "command": "create_room",
@@ -108,7 +164,7 @@ async function createExpressApp() {
       "peerId": "",
       "data": ""
     };
-    await ch.sendToQueue("sfu", Buffer.from(JSON.stringify(msg)));
+    await ch.sendToQueue(sfuName, Buffer.from(JSON.stringify(msg)));
     res.status(200).json({
       "id": id
     });
@@ -275,12 +331,12 @@ async function createSocketConn() {
       let sfuChannel = await rabbitMQ.createChannel();
       await sfuChannel.assertQueue(sfu_worker, {
         "durable": false,
-        "autoDelete": false 
+        "autoDelete": false
       });
       let peerChannel = await rabbitMQ.createChannel();
       await peerChannel.assertQueue(data.uid, {
         "durable": false,
-        "autoDelete": false 
+        "autoDelete": false
       });
 
       setPostHandshakeListeners(socket, sfuChannel, sfu_worker, peerChannel, data.uid);

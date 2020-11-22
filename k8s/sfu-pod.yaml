@@ -10,6 +10,11 @@ spec:
       image: 'itcoursevideochat/sfu:latest'
       resources: {}
       imagePullPolicy: IfNotPresent
+      env:
+        - name: SFU_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
   restartPolicy: Always
   terminationGracePeriodSeconds: 30
   dnsPolicy: ClusterFirst
