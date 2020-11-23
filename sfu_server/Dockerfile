@@ -1,5 +1,5 @@
 # Start from golang base image
-FROM golang:1.15-alpine as builder
+FROM clearlinux/golang:1.15 as builder
 
 # Set the current working directory inside the container
 WORKDIR /build
@@ -16,7 +16,7 @@ COPY . .
 RUN GOOS=linux CGO_ENABLED=0 GOARCH=amd64 go build -a -v -o server ./cmd/sfu
 
 # Start a new stage from busybox
-FROM busybox:latest
+FROM clearlinux:latest
 
 WORKDIR /dist
 

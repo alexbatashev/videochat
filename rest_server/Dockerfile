@@ -1,4 +1,4 @@
-FROM node:10
+FROM clearlinux/node:12.18.4
 
 WORKDIR /service
 COPY package.json .
