@@ -1,4 +1,4 @@
-FROM golang:1.15-alpine3.12
+FROM clearlinux/golang:1.15 as builder
 
 ADD . /src/turn
 
@@ -8,5 +8,12 @@ RUN go build
 
 EXPOSE 3478
 
-CMD ["/src/turn/turn", "--users=\"guest=guest\""]
+FROM clearlinux:latest
 
+WORKDIR /dist
+
+# Copy the build artifacts from the previous stage
+COPY --from=builder /src/turn/turn .
+
+# Run the executable
+CMD ["./turn", "--users=\"guest=guest\""]
