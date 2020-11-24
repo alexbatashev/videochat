@@ -11,8 +11,10 @@ import (
 	"strconv"
 	"syscall"
 	"fmt"
+	"net/http"
 
 	"github.com/pion/turn/v2"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -105,6 +107,10 @@ func main() {
 		log.Panic(err)
 	}
 
+	go func() {
+		http.Handle("/metrics", promhttp.Handler())
+		http.ListenAndServe(":2112", nil)
+	}()
 	// Block until user sends SIGINT or SIGTERM
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)

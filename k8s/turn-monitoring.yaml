@@ -1,12 +1,12 @@
 kind: Service
 apiVersion: v1
 metadata:
-  name: sfu-monitoring
+  name: turn-monitoring
   labels:
-    k8s-app: sfu-monitoring
+    k8s-app: turn-monitoring
 spec:
   selector:
-    k8s-app: sfu
+    k8s-app: turn
   ports:
   - name: prometheus
     port: 2112
@@ -14,14 +14,14 @@ spec:
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
-  name: sfu-monitoring
+  name: turn-monitoring
   namespace: monitoring 
   labels:
     target: prometheus
 spec:
   selector:
     matchLabels:
-      k8s-app: sfu-monitoring
+      k8s-app: turn-monitoring
   endpoints:
   - port: prometheus
     interval: 3s
@@ -29,3 +29,4 @@ spec:
   namespaceSelector:
     matchNames:
       - default
+

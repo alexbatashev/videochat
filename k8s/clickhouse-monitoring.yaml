@@ -1,0 +1,19 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: clickhouse-operator-metrics
+  namespace: monitoring 
+  labels:
+    target: prometheus
+spec:
+  selector:
+    matchLabels:
+      app: clickhouse-operator
+  endpoints:
+  - port: clickhouse-operator-metrics
+    interval: 3s
+    path: /metrics
+  namespaceSelector:
+    matchNames:
+      - kube-system
+
