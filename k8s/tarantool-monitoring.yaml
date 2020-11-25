@@ -1,0 +1,32 @@
+kind: Service
+apiVersion: v1
+metadata:
+  name: tarantool-monitoring
+  labels:
+    k8s-app: tarantool-monitoring
+spec:
+  selector:
+    tarantool.io/cluster-id: tarantool-cluster
+  ports:
+  - name: prometheus
+    port: 2112
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: tarantool-monitoring
+  namespace: monitoring 
+  labels:
+    target: prometheus
+spec:
+  selector:
+    matchLabels:
+      k8s-app: tarantool-monitoring
+  endpoints:
+  - port: prometheus
+    interval: 3s
+    path: /metrics
+  namespaceSelector:
+    matchNames:
+      - default
+

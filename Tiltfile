@@ -12,6 +12,8 @@ k8s_yaml([
   'k8s/sfu-monitoring.yaml',
   'k8s/turn-monitoring.yaml',
   'k8s/clickhouse-monitoring.yaml',
+  'k8s/rabbitmq-monitoring.yaml',
+  'k8s/tarantool-monitoring.yaml',
   'k8s/prometheus-role.yaml',
   'k8s/prometheus-pod.yaml'
 ])
