@@ -4,7 +4,7 @@ metadata:
   name: rabbitmq-config
 data:
   enabled_plugins: |
-      [rabbitmq_management,rabbitmq_peer_discovery_k8s,rabbitmq_mqtt].
+      [rabbitmq_management,rabbitmq_peer_discovery_k8s,rabbitmq_mqtt,rabbitmq_prometheus].
   rabbitmq.conf: |
       ## Cluster formation. See https://www.rabbitmq.com/cluster-formation.html to learn more.
       cluster_formation.peer_discovery_backend  = rabbit_peer_discovery_k8s

@@ -7,6 +7,14 @@ box.cfg
 
 local mqtt = require('mqtt')
 local json = require('json')
+local prometheus = require('prometheus')
+local fiber = require('fiber')
+local http = require('http.server')
+
+httpd = http.new('0.0.0.0', 2112)
+arena_used = prometheus.gauge("tarantool_arena_used",
+                              "The amount of arena used by Tarantool")
+
 connection = mqtt.new()
 connection:login_set('guest', 'guest')
 local ok, emsg = connection:connect({host = 'rabbitmq', port = 1883})
@@ -115,3 +123,17 @@ if not box.space.rooms then
     parts = {'id'}
   })
 end
+
+function monitor_arena_size()
+  while true do
+    arena_used:set(box.slab.info().arena_used)
+    fiber.sleep(5)
+  end
+end
+fiber.create(monitor_arena_size)
+
+function prometheus_handler()
+  httpd:route( { path = '/metrics' }, prometheus.collect_http)
+  httpd:start()
+end
+fiber.create(prometheus_handler)
