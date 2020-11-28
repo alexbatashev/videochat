@@ -4,6 +4,7 @@ metadata:
   name: grafana
   labels:
     k8s-app: grafana
+  namespace: monitoring
 spec:
   containers:
     - name: grafana

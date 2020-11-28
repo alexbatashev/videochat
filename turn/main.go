@@ -3,15 +3,16 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"regexp"
 	"strconv"
 	"syscall"
-	"fmt"
-	"net/http"
+	"time"
 
 	"github.com/pion/turn/v2"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -42,23 +43,24 @@ func main() {
 		panic(err.Error())
 	}
 
-	services, err := clientset.CoreV1().Services("default").List(context.TODO(), metav1.ListOptions{})
-	if err != nil {
-		panic(err.Error())
-	}
-
-	fmt.Printf("There are %d turn services in the cluster\n", len(services.Items))
-
-	if (len(services.Items) == 0) {
-		fmt.Printf("Failed to correctly fetch turn service")
-		panic(nil)
-	}
-
 	var publicIP = ""
-	for _, service := range services.Items {
-		fmt.Println(service.ObjectMeta.Name)
-		if (service.ObjectMeta.Name == "turn") {
-			publicIP = service.Status.LoadBalancer.Ingress[0].IP
+	for publicIP == "" {
+		time.Sleep(30 * time.Millisecond)
+		services, err := clientset.CoreV1().Services("default").List(context.TODO(), metav1.ListOptions{})
+		if err != nil {
+			panic(err.Error())
+		}
+
+		if len(services.Items) == 0 {
+			fmt.Printf("Failed to correctly fetch turn service")
+			continue	
+		}
+		for _, service := range services.Items {
+			fmt.Println(service.ObjectMeta.Name)
+			if service.ObjectMeta.Name == "turn" && len(service.Status.LoadBalancer.Ingress) > 0 {
+				publicIP = service.Status.LoadBalancer.Ingress[0].IP
+				break
+			}
 		}
 	}
 

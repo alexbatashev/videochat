@@ -6,8 +6,8 @@ data:
   config.xml: |
       <yandex>
       <rabbitmq>
-          <username>guest</username>
-          <password>guest</password>
+          <username from-env="RABBITMQ_USER"/>
+          <password from-env="RABBITMQ_PASSWORD"/>
       </rabbitmq>
       </yandex>
 

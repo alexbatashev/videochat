@@ -7,6 +7,7 @@ metadata:
     controller-gen.kubebuilder.io/version: v0.4.1
   creationTimestamp: null
   name: alertmanagerconfigs.monitoring.coreos.com
+  namespace: monitoring
 spec:
   group: monitoring.coreos.com
   names:

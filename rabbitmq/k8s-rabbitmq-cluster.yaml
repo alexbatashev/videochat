@@ -1,0 +1,21 @@
+apiVersion: rabbitmq.com/v1beta1
+kind: RabbitmqCluster
+metadata:
+  name: rabbitmq
+spec:
+  rabbitmq:
+    additionalPlugins:
+      - rabbitmq_management
+      - rabbitmq_peer_discovery_k8s
+      - rabbitmq_mqtt
+      - rabbitmq_prometheus
+    additionalConfig: |
+      loopback_users.guest = false
+      mqtt.default_user = guest
+      mqtt.default_pass = guest
+      mqtt.listeners.tcp.default = 1883
+      mqtt.vhost            = /
+      mqtt.exchange         = amq.topic
+      # 24 hours by default
+      mqtt.subscription_ttl = 86400000
+      mqtt.prefetch         = 10

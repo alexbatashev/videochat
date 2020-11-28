@@ -81,6 +81,16 @@ spec:
             value: tarantool
           - name: TARANTOOL_USER_PASSWORD
             value: tarantoolpwd
+          - name: RABBITMQ_USER
+            valueFrom:
+              secretKeyRef:
+                name: rabbitmq-default-user
+                key: username
+          - name: RABBITMQ_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: rabbitmq-default-user
+                key: password
 ---
 apiVersion: tarantool.io/v1alpha1
 kind: ReplicasetTemplate
@@ -130,6 +140,16 @@ spec:
             value: tarantool
           - name: TARANTOOL_USER_PASSWORD
             value: tarantoolpwd
+          - name: RABBITMQ_USER
+            valueFrom:
+              secretKeyRef:
+                name: rabbitmq-default-user
+                key: username
+          - name: RABBITMQ_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: rabbitmq-default-user
+                key: password
 ---
 apiVersion: v1
 kind: Service

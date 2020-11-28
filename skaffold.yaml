@@ -10,8 +10,6 @@ build:
       context: nginx
     - image: itcoursevideochat/prometheus
       context: prometheus
-    - image: itcoursevideochat/rabbitmq
-      context: rabbitmq
     - image: itcoursevideochat/rest
       context: rest_server
     - image: itcoursevideochat/sfu
@@ -23,13 +21,21 @@ build:
 deploy:
   kubectl:
     manifests:
-      - common/*
-      - monitoring/*
-      - clickhouse/k8s-*
-      - nginx/k8s-*
-      - rabbitmq/k8s-*
-      - rest_server/k8s-*
-      - sfu_server/k8s-*
-      - tarantool/k8s-*
-      - turn/k8s-*
-      - zookeeper/k8s-*
+      - monitoring/*.yaml
+      - turn/k8s-*.yaml
+      - prometheus/k8s-*.yaml
+      - grafana/k8s-*.yaml
+      - zookeeper/k8s-*.yaml
+      - clickhouse/k8s-*.yaml
+      - nginx/k8s-*.yaml
+      - rabbitmq/k8s-*.yaml
+      - rest_server/k8s-*.yaml
+      - sfu_server/k8s-*.yaml
+      - tarantool/k8s-*.yaml
+
+profiles:
+  - name: minikube-profile
+    # automatically activate this profile when current context is "minikube"
+    activation:
+      - kubeContext: minikube
+

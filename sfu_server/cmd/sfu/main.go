@@ -51,7 +51,10 @@ func main() {
 	}
 
 	rc := sfu.CreateWebRTCRoomController()
-	qp, err := sfu.CreateRabbitMQProvider("amqp://guest:guest@rabbitmq/")
+	user := os.Getenv("RABBITMQ_USER") 
+	password := os.Getenv("RABBITMQ_PASSWORD") 	
+	url := "amqp://" + user + ":" + password + "@rabbitmq/"
+	qp, err := sfu.CreateRabbitMQProvider(url)
 	if err != nil {
 		panic(err)
 	}
