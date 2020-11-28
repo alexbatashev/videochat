@@ -1,10 +1,19 @@
 # Monitoring
-k8s_yaml('k8s/monitoring.yaml')
+k8s_yaml([
+  'k8s/monitoring.yaml',
+  'k8s/prometheus-role.yaml'
+])
 
 load('ext://helm_remote', 'helm_remote')
 helm_remote(
+  'grafana',
+  repo_url='https://grafana.github.io/helm-charts',
+  values=['./configs/grafana.yaml'],
+  namespace='monitoring'
+)
+helm_remote(
   'kube-prometheus-stack', 
-  repo_url='https://prometheus-community.github.io/helm-charts', 
+  repo_url='https://prometheus-community.github.io/helm-charts',
   namespace='monitoring'
 )
 
@@ -14,15 +23,13 @@ k8s_yaml([
   'k8s/clickhouse-monitoring.yaml',
   'k8s/rabbitmq-monitoring.yaml',
   'k8s/tarantool-monitoring.yaml',
-  'k8s/prometheus-role.yaml',
-  'k8s/prometheus-pod.yaml'
+  'k8s/prometheus-pod.yaml',
+  'k8s/grafana-credentials.yaml'
 ])
 
 # Service
 
 k8s_yaml([
-  # 'k8s/grafana-pod.yaml',
-  # 'k8s/grafana-service.yaml',
   'k8s/nginx-deployment.yaml',
   'k8s/nginx-service.yaml',
   'k8s/rabbitmq-configmap.yaml',
@@ -52,4 +59,4 @@ docker_build('itcoursevideochat/sfu', 'sfu_server')
 docker_build('itcoursevideochat/tarantool', '.', dockerfile='Dockerfile.tarantool')
 docker_build('itcoursevideochat/turn', 'turn')
 docker_build('itcoursevideochat/nginx', '.', dockerfile='Dockerfile.nginx')
-docker_build('itcoursevideochat/clickhouse', '.', dockerfile="Dockerfile.clickhouse")
+docker_build('itcoursevideochat/clickhouse', '.', dockerfile='Dockerfile.clickhouse')

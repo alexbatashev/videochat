@@ -1,4 +1,4 @@
 FROM clearlinux/nginx
 
 COPY static/* /usr/share/nginx/html/
-COPY configs/nginx.conf /etc/nginx/conf.d/default.conf
+COPY nginx.conf /etc/nginx/conf.d/default.conf
