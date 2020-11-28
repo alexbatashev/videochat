@@ -209,9 +209,11 @@ async function createHTTPServer() {
 
 async function createRabbitMQConnection() {
   return new Promise(async function (resolve, reject) {
+    const user = process.env.RABBITMQ_USER;
+    const pwd = process.env.RABBITMQ_PASSWORD;
     while (true) {
       try {
-        rabbitMQ = await amqp.connect('amqp://guest:guest@rabbitmq/');
+        rabbitMQ = await amqp.connect('amqp://' + user + ':' + pwd + '@rabbitmq/');
         break;
       } catch (msg) {
         console.warn(msg);

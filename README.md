@@ -5,8 +5,7 @@
 ### 0. Prerequisites
 
 1. Install minikube: https://kubernetes.io/ru/docs/tasks/tools/install-minikube/
-2. Install helm: https://helm.sh/docs/intro/quickstart/#install-helm
-3. Install tilt: https://docs.tilt.dev/install.html
+2. Install skaffold: https://skaffold.dev/docs/install/
 
 ### 1. Set up environment
 
@@ -23,7 +22,7 @@ minikube dashboard
 ### 2. Deploy application
 
 ```bash
-tilt up
+./dev.sh
 ```
 
 ### 3. Spin up chrome for testing

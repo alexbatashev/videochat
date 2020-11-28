@@ -1,0 +1,16 @@
+kind: Pod
+apiVersion: v1
+metadata:
+  name: grafana
+  labels:
+    k8s-app: grafana
+  namespace: monitoring
+spec:
+  containers:
+    - name: grafana
+      image: 'itcoursevideochat/grafana:latest'
+      ports:
+        - containerPort: 3000
+  restartPolicy: Always
+  enableServiceLinks: true
+status: {}

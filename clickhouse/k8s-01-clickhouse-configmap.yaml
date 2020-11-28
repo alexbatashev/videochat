@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: clickhouse-config
+data:
+  config.xml: |
+      <yandex>
+      <rabbitmq>
+          <username from-env="RABBITMQ_USER"/>
+          <password from-env="RABBITMQ_PASSWORD"/>
+      </rabbitmq>
+      </yandex>
+
+
