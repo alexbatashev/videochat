@@ -72,7 +72,7 @@ func main() {
 	var numberOfPeers uint32 = 0
 	var version int32 = 0
 
-	go sfu.StartServer(qp, "sfu", &rc, func (direction bool) {
+	go sfu.StartServer(qp, podName, &rc, func (direction bool) {
 		if direction {
 			numberOfPeers += 1
 		} else {

@@ -3,6 +3,7 @@ kind: RabbitmqCluster
 metadata:
   name: rabbitmq
 spec:
+  replicas: 3
   rabbitmq:
     additionalPlugins:
       - rabbitmq_management
@@ -10,7 +11,7 @@ spec:
       - rabbitmq_mqtt
       - rabbitmq_prometheus
     additionalConfig: |
-      loopback_users.guest = false
+      # loopback_users.guest = false
       mqtt.default_user = guest
       mqtt.default_pass = guest
       mqtt.listeners.tcp.default = 1883
@@ -19,3 +20,6 @@ spec:
       # 24 hours by default
       mqtt.subscription_ttl = 86400000
       mqtt.prefetch         = 10
+      vm_memory_high_watermark_paging_ratio = 0.99
+      disk_free_limit.relative = 1.0
+      cluster_partition_handling = ignore
