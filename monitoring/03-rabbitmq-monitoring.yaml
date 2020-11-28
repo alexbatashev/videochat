@@ -6,7 +6,7 @@ metadata:
     k8s-app: rabbitmq-monitoring
 spec:
   selector:
-    k8s-app: rabbitmq
+    app.kubernetes.io/name: rabbitmq
   ports:
   - name: prometheus
     port: 15692
@@ -29,5 +29,3 @@ spec:
   namespaceSelector:
     matchNames:
       - default
-
-
