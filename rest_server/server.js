@@ -172,12 +172,10 @@ async function createExpressApp() {
   router.get("/ice_servers", async (req, res, next) => {
     try {
       const services = await k8sApi.listNamespacedService("default");
-      var found = false;
       var iceServers = [];
       services.body.items.forEach(service => {
         if (service.metadata["name"] === "turn") {
           const externalIP = service.status.loadBalancer.ingress[0].ip;
-          found = true;
           iceServers.push({
             "urls": "stun:" + externalIP + ":3478",
             "username": "guest",

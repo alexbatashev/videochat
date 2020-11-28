@@ -13,7 +13,7 @@ spec:
   selector:
     k8s-app: rest
   type: ClusterIP
-  sessionAffinity: None
+  sessionAffinity: "ClientIP" 
 status:
   loadBalancer: {}
 

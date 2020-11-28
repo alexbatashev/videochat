@@ -22,7 +22,10 @@ spec:
       containers:
         - name: turn
           image: 'itcoursevideochat/turn:latest'
-          resources: {}
+          resources:
+            limits:
+              cpu: "50m"
+              memory: "128Mi"
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 3478

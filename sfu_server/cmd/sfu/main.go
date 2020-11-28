@@ -26,9 +26,18 @@ func main() {
 
 	log.Printf("Pod name is %s", podName)
 
-	zkClient, _, err := zk.Connect([]string{"zookeeper"}, time.Second*10)
+	time.Sleep(3*time.Second)
+	zkClient, done, err := zk.Connect([]string{"zookeeper"}, time.Second*10)
 	if err != nil {
 		panic(err)
+	}
+
+	for true {
+		e := <-done
+		if e.State == zk.StateConnected {
+			break
+		}
+		time.Sleep(30*time.Millisecond)
 	}
 	defer zkClient.Close()
 

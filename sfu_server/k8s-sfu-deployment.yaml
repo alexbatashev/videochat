@@ -1,33 +1,30 @@
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: rest-robot
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: rest
+  name: sfu 
 spec:
   selector:
     matchLabels:
-      k8s-app: rest
+      k8s-app: sfu 
   replicas: 1
   template:
     metadata:
       labels:
-        k8s-app: rest
+        k8s-app: sfu 
     spec:
-      serviceAccountName: rest-robot
       containers:
-        - name: rest
-          image: 'itcoursevideochat/rest:latest'
+        - name: sfu
+          image: 'itcoursevideochat/sfu:latest'
           resources:
             limits:
-              cpu: "100m"
-              memory: "64Mi"
+              cpu: "250m"
+              memory: "256Mi"
           imagePullPolicy: IfNotPresent
           env:
+            - name: SFU_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
             - name: RABBITMQ_USER
               valueFrom:
                 secretKeyRef:
@@ -41,6 +38,5 @@ spec:
       restartPolicy: Always
       terminationGracePeriodSeconds: 30
       dnsPolicy: ClusterFirst
-      priority: 0
       enableServiceLinks: true
       preemptionPolicy: PreemptLowerPriority
