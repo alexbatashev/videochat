@@ -18,5 +18,9 @@ spec:
           ports:
             - containerPort: 80
           imagePullPolicy: IfNotPresent
+          resources:
+            limits:
+              cpu: "100m"
+              memory: "64Mi"
       restartPolicy: Always
       enableServiceLinks: true

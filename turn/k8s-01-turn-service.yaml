@@ -13,8 +13,5 @@ spec:
   selector:
     k8s-app: turn
   type: LoadBalancer 
-  sessionAffinity: None
+  sessionAffinity: "ClientIP"
   externalTrafficPolicy: Cluster
-status:
-  loadBalancer: {}
-
