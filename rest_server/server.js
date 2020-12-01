@@ -31,7 +31,7 @@ var ch = null;
 var rabbitMQ;
 
 var hotDBConnection = new Tarantool({
-  host: "tarantool-cluster",
+  host: "tarantool-routers",
   port: 3301,
   username: 'tarantool',
   password: 'tarantoolpwd'
