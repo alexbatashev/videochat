@@ -5,28 +5,17 @@ metadata:
 spec:
   selector:
     matchLabels:
-      tarantool.io/cluster-id: "tarantool-cluster"
+      tarantool.io/cluster-id: tarantool-cluster
 ---
 apiVersion: tarantool.io/v1alpha1
 kind: Role
 metadata:
-  name: storage
+  name: router 
   labels:
-    tarantool.io/cluster-id: "tarantool-cluster"
-    tarantool.io/role: "storage"
-spec:
-  selector:
-    matchLabels:
-      tarantool.io/replicaset-template: "storage-template"
-  numReplicasets: 1
----
-apiVersion: tarantool.io/v1alpha1
-kind: Role
-metadata:
-  name: routers
-  labels:
-    tarantool.io/cluster-id: "tarantool-cluster"
-    tarantool.io/role: "router"
+    tarantool.io/cluster-id: tarantool-cluster
+    tarantool.io/role: router 
+  annotations:
+    tarantool.io/rolesToAssign: '["router"]'
 spec:
   selector:
     matchLabels:
@@ -36,131 +25,443 @@ spec:
 apiVersion: tarantool.io/v1alpha1
 kind: ReplicasetTemplate
 metadata:
-  name: storage-template
+  name: "router-template"
   labels:
-    tarantool.io/cluster-id: "tarantool-cluster"
-    tarantool.io/replicaset-template: "storage-template"
-    tarantool.io/role: "storage"
+    tarantool.io/cluster-id: tarantool-cluster
+    tarantool.io/replicaset-template: "router-template"
+    tarantool.io/role: router 
+    tarantool.io/useVshardGroups: "0"
+  annotations:
+    tarantool.io/rolesToAssign: '["router"]'
 spec:
   replicas: 1
+  serviceName: router
   selector:
     matchLabels:
-      tarantool.io/pod-template: "storage-pod-template"
+      tarantool.io/pod-template: "router-pod-template"
+  volumeClaimTemplates:
+    - metadata:
+        name: www
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 200Mi
   template:
     metadata:
       labels:
-        tarantool.io/cluster-id: "tarantool-cluster"
-        tarantool.io/pod-template: "storage-pod-template"
+        tarantool.io/cluster-id: tarantool-cluster
+        tarantool.io/pod-template: "router-pod-template"
+        tarantool.io/useVshardGroups: "0"
+        environment: "dev"
+      annotations:
+        tarantool.io/rolesToAssign: '["router"]'
+        prometheus.io/path: "/metrics"
+        prometheus.io/port: "8081"
+        prometheus.io/scrape: "true"
     spec:
       terminationGracePeriodSeconds: 10
       dnsConfig:
         options:
           - name: ndots
             value: "1"
+      updateStrategy:
+        type: OnDelete
+      securityContext:
+        fsGroup: 1000
+        capabilities:
+          add: ["SYS_ADMIN"]
       containers:
-      - name: pim-storage
-        image: itcoursevideochat/tarantool
-        ports:
-          - containerPort: 3301
-        env:
-          - name: TARANTOOL_INSTANCE_NAME
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.name
-          - name: TARANTOOL_MEMTX_MEMORY
-            value: "33554432"
-          - name: TARANTOOL_LOG
-            value: "/dev/stdout"
-          - name: TARANTOOL_ADVERTISE_HOST
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.name
-          - name: TARANTOOL_ADVERTISE_URI
-            value: "$(TARANTOOL_ADVERTISE_HOST).tarantool-cluster:3301"
-          - name: TARANTOOL_USER_NAME
-            value: tarantool
-          - name: TARANTOOL_USER_PASSWORD
-            value: tarantoolpwd
-          - name: RABBITMQ_USER
-            valueFrom:
-              secretKeyRef:
-                name: rabbitmq-default-user
-                key: username
-          - name: RABBITMQ_PASSWORD
-            valueFrom:
-              secretKeyRef:
-                name: rabbitmq-default-user
-                key: password
+        - name: pim-storage
+          image: "itcoursevideochat/tarantool"
+          volumeMounts:
+            - name: www
+              mountPath: "/data"
+          resources:
+            requests:
+              cpu: 0.25
+              memory: "128M"
+            limits:
+              cpu: "0.25"
+              memory: "256M"
+          ports:
+            - containerPort: 3301
+              protocol: TCP
+              name: app
+            - containerPort: 3301
+              protocol: UDP
+              name: app-udp
+            - containerPort: 8081
+              protocol: TCP
+              name: http
+          env:
+            - name: ENVIRONMENT
+              value: "dev"
+            - name: TARANTOOL_INSTANCE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: TARANTOOL_ALIAS
+              value: "$(TARANTOOL_INSTANCE_NAME)"
+            - name: TARANTOOL_MEMTX_MEMORY
+              value: "134217728"
+            - name: TARANTOOL_BUCKET_COUNT
+              value: "30000"
+            - name: TARANTOOL_ADVERTISE_TMP
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: TARANTOOL_ADVERTISE_HOST
+              value: "$(TARANTOOL_ADVERTISE_TMP).tarantool-cluster.default.svc.cluster.local"
+            - name: TARANTOOL_ADVERTISE_URI
+              value: "$(TARANTOOL_ADVERTISE_HOST):3301"
+            - name: TARANTOOL_PROBE_URI_TIMEOUT
+              value: "30"
+            - name: TARANTOOL_HTTP_PORT
+              value: "8081"
+            - name: TARANTOOL_USER_NAME
+              value: tarantool
+            - name: TARANTOOL_USER_PASSWORD
+              value: tarantoolpwd
+          # readinessProbe:
+          #   tcpSocket:
+          #     port: http
+          #   initialDelaySeconds: 15
+          #   periodSeconds: 10
+---
+apiVersion: tarantool.io/v1alpha1
+kind: Role
+metadata:
+  name: storage 
+  labels:
+    tarantool.io/cluster-id: tarantool-cluster
+    tarantool.io/role: storage
+  annotations:
+    tarantool.io/rolesToAssign: '["storage"]'
+spec:
+  selector:
+    matchLabels:
+      tarantool.io/replicaset-template: "storage-template"
+  numReplicasets: 1
 ---
 apiVersion: tarantool.io/v1alpha1
 kind: ReplicasetTemplate
 metadata:
-  name: router-template
+  name: "storage-template"
   labels:
-    tarantool.io/cluster-id: "tarantool-cluster"
-    tarantool.io/replicaset-template: "router-template"
-    tarantool.io/role: "router"
+    tarantool.io/cluster-id: tarantool-cluster
+    tarantool.io/replicaset-template: "storage-template"
+    tarantool.io/role: storage
+    tarantool.io/useVshardGroups: "0"
+  annotations:
+    tarantool.io/rolesToAssign: '["storage"]'
 spec:
-  replicas: 1
+  replicas: 2
+  serviceName: storage
   selector:
     matchLabels:
-      tarantool.io/pod-template: "router-pod-template"
+      tarantool.io/pod-template: "storage-pod-template"
+  volumeClaimTemplates:
+    - metadata:
+        name: www
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 200Mi
   template:
     metadata:
       labels:
-        tarantool.io/cluster-id: "tarantool-cluster"
-        tarantool.io/pod-template: "router-pod-template"
+        tarantool.io/cluster-id: tarantool-cluster
+        tarantool.io/pod-template: "storage-pod-template"
+        tarantool.io/useVshardGroups: "0"
+        environment: "dev"
+      annotations:
+        tarantool.io/rolesToAssign: '["storage"]'
+        prometheus.io/path: "/metrics"
+        prometheus.io/port: "8081"
+        prometheus.io/scrape: "true"
     spec:
       terminationGracePeriodSeconds: 10
       dnsConfig:
         options:
           - name: ndots
             value: "1"
+      updateStrategy:
+        type: OnDelete
+      securityContext:
+        fsGroup: 1000
+        capabilities:
+          add: ["SYS_ADMIN"]
       containers:
-      - name: pim-router
-        image: itcoursevideochat/tarantool
-        ports:
-          - containerPort: 3301
-        env:
-          - name: TARANTOOL_INSTANCE_NAME
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.name
-          - name: TARANTOOL_MEMTX_MEMORY
-            value: "33554432"
-          - name: TARANTOOL_LOG
-            value: "/dev/stdout"
-          - name: TARANTOOL_ADVERTISE_HOST
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.name
-          - name: TARANTOOL_ADVERTISE_URI
-            value: "$(TARANTOOL_ADVERTISE_HOST).tarantool-cluster:3301"
-          - name: TARANTOOL_USER_NAME
-            value: tarantool
-          - name: TARANTOOL_USER_PASSWORD
-            value: tarantoolpwd
-          - name: RABBITMQ_USER
-            valueFrom:
-              secretKeyRef:
-                name: rabbitmq-default-user
-                key: username
-          - name: RABBITMQ_PASSWORD
-            valueFrom:
-              secretKeyRef:
-                name: rabbitmq-default-user
-                key: password
+        - name: pim-storage
+          image: "itcoursevideochat/tarantool"
+          volumeMounts:
+            - name: www
+              mountPath: "/data"
+          resources:
+            requests:
+              cpu: 0.25
+              memory: "128M"
+            limits:
+              cpu: "0.25"
+              memory: "256M"
+          ports:
+            - containerPort: 3301
+              protocol: TCP
+              name: app
+            - containerPort: 3301
+              protocol: UDP
+              name: app-udp
+            - containerPort: 8081
+              protocol: TCP
+              name: http
+          env:
+            - name: ENVIRONMENT
+              value: "dev"
+            - name: TARANTOOL_USER_NAME
+              value: tarantool
+            - name: TARANTOOL_USER_PASSWORD
+              value: tarantoolpwd
+            - name: TARANTOOL_INSTANCE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: TARANTOOL_ALIAS
+              value: "$(TARANTOOL_INSTANCE_NAME)"
+            - name: TARANTOOL_MEMTX_MEMORY
+              value: "134217728"
+            - name: TARANTOOL_BUCKET_COUNT
+              value: "30000"
+            - name: TARANTOOL_ADVERTISE_TMP
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: TARANTOOL_ADVERTISE_HOST
+              value: "$(TARANTOOL_ADVERTISE_TMP).tarantool-cluster.default.svc.cluster.local"
+            - name: TARANTOOL_ADVERTISE_URI
+              value: "$(TARANTOOL_ADVERTISE_HOST):3301"
+            - name: TARANTOOL_PROBE_URI_TIMEOUT
+              value: "30"
+            - name: TARANTOOL_HTTP_PORT
+              value: "8081"
+          # readinessProbe:
+          #   tcpSocket:
+          #     port: http
+          #   initialDelaySeconds: 15
+          #   periodSeconds: 10
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: tarantool-cluster 
+  name: tarantool-routers
   labels:
-    tarantool.io/role: "router"
+    tarantool.io/role: router
 spec:
+  type: LoadBalancer
   ports:
-    - port: 3301
+    - port: 8081
       name: web
       protocol: TCP
+    - port: 3301
+      name: app
+      protocol: TCP
   selector:
-    tarantool.io/role: "router"
+    tarantool.io/role: router 
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: storage
+  labels:
+    tarantool.io/role: storage
+spec:
+  ports:
+    - port: 8081
+      name: web
+      protocol: TCP
+    - port: 3301
+      name: app
+      protocol: TCP
+  selector:
+    tarantool.io/role: storage
+# apiVersion: tarantool.io/v1alpha1
+# kind: Cluster
+# metadata:
+#   name: tarantool-cluster
+# spec:
+#   selector:
+#     matchLabels:
+#       tarantool.io/cluster-id: "tarantool-cluster"
+# ---
+# apiVersion: tarantool.io/v1alpha1
+# kind: Role
+# metadata:
+#   name: storage
+#   labels:
+#     tarantool.io/cluster-id: "tarantool-cluster"
+#     tarantool.io/role: "storage"
+#   annotations:
+#     tarantool.io/rolesToAssign: '["storage"]'
+# spec:
+#   selector:
+#     matchLabels:
+#       tarantool.io/replicaset-template: "storage-template"
+#   numReplicasets: 1
+# ---
+# apiVersion: tarantool.io/v1alpha1
+# kind: Role
+# metadata:
+#   name: routers
+#   labels:
+#     tarantool.io/cluster-id: "tarantool-cluster"
+#     tarantool.io/role: "router"
+#   annotations:
+#     tarantool.io/rolesToAssign: '["router"]'
+# spec:
+#   selector:
+#     matchLabels:
+#       tarantool.io/replicaset-template: "router-template"
+#   numReplicasets: 1
+# ---
+# apiVersion: tarantool.io/v1alpha1
+# kind: ReplicasetTemplate
+# metadata:
+#   name: storage-template
+#   labels:
+#     tarantool.io/cluster-id: "tarantool-cluster"
+#     tarantool.io/replicaset-template: "storage-template"
+#     tarantool.io/role: "storage"
+#   annotations:
+#     tarantool.io/rolesToAssign: '["storage"]'
+# spec:
+#   replicas: 1
+#   selector:
+#     matchLabels:
+#       tarantool.io/pod-template: "storage-pod-template"
+#   template:
+#     metadata:
+#       labels:
+#         tarantool.io/cluster-id: "tarantool-cluster"
+#         tarantool.io/pod-template: "storage-pod-template"
+#       annotations:
+#         tarantool.io/rolesToAssign: '["storage"]'
+#     spec:
+#       terminationGracePeriodSeconds: 10
+#       dnsConfig:
+#         options:
+#           - name: ndots
+#             value: "1"
+#       containers:
+#       - name: pim-storage
+#         image: itcoursevideochat/tarantool:latest
+#         imagePullPolicy: IfNotPresent
+#         ports:
+#           - containerPort: 3301
+#         env:
+#           - name: TARANTOOL_INSTANCE_NAME
+#             valueFrom:
+#               fieldRef:
+#                 fieldPath: metadata.name
+#           - name: TARANTOOL_MEMTX_MEMORY
+#             value: "33554432"
+#           - name: TARANTOOL_LOG
+#             value: "/dev/stdout"
+#           - name: TARANTOOL_ADVERTISE_HOST
+#             valueFrom:
+#               fieldRef:
+#                 fieldPath: metadata.name
+#           - name: TARANTOOL_ADVERTISE_URI
+#             value: "$(TARANTOOL_ADVERTISE_HOST).tarantool-cluster:3301"
+#           - name: TARANTOOL_USER_NAME
+#             value: tarantool
+#           - name: TARANTOOL_USER_PASSWORD
+#             value: tarantoolpwd
+#           - name: RABBITMQ_USER
+#             valueFrom:
+#               secretKeyRef:
+#                 name: rabbitmq-default-user
+#                 key: username
+#           - name: RABBITMQ_PASSWORD
+#             valueFrom:
+#               secretKeyRef:
+#                 name: rabbitmq-default-user
+#                 key: password
+# ---
+# apiVersion: tarantool.io/v1alpha1
+# kind: ReplicasetTemplate
+# metadata:
+#   name: router-template
+#   labels:
+#     tarantool.io/cluster-id: "tarantool-cluster"
+#     tarantool.io/replicaset-template: "router-template"
+#     tarantool.io/role: "router"
+#   annotations:
+#     tarantool.io/rolesToAssign: '["router"]'
+# spec:
+#   replicas: 1
+#   selector:
+#     matchLabels:
+#       tarantool.io/pod-template: "router-pod-template"
+#   template:
+#     metadata:
+#       labels:
+#         tarantool.io/cluster-id: "tarantool-cluster"
+#         tarantool.io/pod-template: "router-pod-template"
+#       annotations:
+#         tarantool.io/rolesToAssign: '["router"]'
+#     spec:
+#       terminationGracePeriodSeconds: 10
+#       dnsConfig:
+#         options:
+#           - name: ndots
+#             value: "1"
+#       containers:
+#       - name: pim-router
+#         image: itcoursevideochat/tarantool:latest
+#         imagePullPolicy: IfNotPresent
+#         ports:
+#           - containerPort: 3301
+#         env:
+#           - name: TARANTOOL_INSTANCE_NAME
+#             valueFrom:
+#               fieldRef:
+#                 fieldPath: metadata.name
+#           - name: TARANTOOL_MEMTX_MEMORY
+#             value: "33554432"
+#           - name: TARANTOOL_LOG
+#             value: "/dev/stdout"
+#           - name: TARANTOOL_ADVERTISE_HOST
+#             valueFrom:
+#               fieldRef:
+#                 fieldPath: metadata.name
+#           - name: TARANTOOL_ADVERTISE_URI
+#             value: "$(TARANTOOL_ADVERTISE_HOST).tarantool-cluster:3301"
+#           - name: TARANTOOL_USER_NAME
+#             value: tarantool
+#           - name: TARANTOOL_USER_PASSWORD
+#             value: tarantoolpwd
+#           - name: RABBITMQ_USER
+#             valueFrom:
+#               secretKeyRef:
+#                 name: rabbitmq-default-user
+#                 key: username
+#           - name: RABBITMQ_PASSWORD
+#             valueFrom:
+#               secretKeyRef:
+#                 name: rabbitmq-default-user
+#                 key: password
+# ---
+# apiVersion: v1
+# kind: Service
+# metadata:
+#   name: tarantool-cluster 
+#   labels:
+#     tarantool.io/role: "router"
+# spec:
+#   ports:
+#     - port: 3301
+#       name: web
+#       protocol: TCP
+#   selector:
+#     tarantool.io/role: "router"

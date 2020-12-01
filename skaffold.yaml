@@ -29,9 +29,9 @@ deploy:
       - clickhouse/k8s-*.yaml
       - nginx/k8s-*.yaml
       - rabbitmq/k8s-*.yaml
+      - tarantool/k8s-*.yaml
       - rest_server/k8s-*.yaml
       - sfu_server/k8s-*.yaml
-      - tarantool/k8s-*.yaml
 
 profiles:
   - name: minikube-profile

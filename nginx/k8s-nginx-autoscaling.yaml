@@ -1,8 +1,8 @@
 apiVersion: autoscaling/v1
 kind: HorizontalPodAutoscaler
 metadata:
-  name: rest
-  namespace: nginx 
+  name: nginx
+  namespace: default 
 spec:
   maxReplicas: 10
   minReplicas: 1
