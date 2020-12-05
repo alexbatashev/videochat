@@ -10,9 +10,21 @@ spec:
     clusters:
       - name: "shard1-repl1"
         layout:
-          shardsCount: 1
+          shardsCount: 2
           replicasCount: 2
+  defaults:
+    templates:
+      podTemplate: pod-template
+      dataVolumeClaimTemplate: default
   templates:
+    volumeClaimTemplates:
+        - name: default
+          spec:
+            accessModes:
+              - ReadWriteOnce
+            resources:
+              requests:
+                storage: 500Mi
     podTemplates:
       - name: pod-template
         spec:
@@ -22,7 +34,7 @@ spec:
               imagePullPolicy: IfNotPresent
               volumeMounts:
                 - name: clickhouse-config-volume
-                  mountPath: /etc/clickhouse-server/config.d
+                  mountPath: /etc/clickhouse-server/config.d/rabbit
               env:
                 - name: RABBITMQ_USER
                   valueFrom:
