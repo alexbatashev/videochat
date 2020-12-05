@@ -27,6 +27,11 @@ spec:
               cpu: "100m"
               memory: "64Mi"
           imagePullPolicy: IfNotPresent
+          env:
+            - name: NODE_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
       restartPolicy: Always
       terminationGracePeriodSeconds: 30
       dnsPolicy: ClusterFirst

@@ -40,16 +40,18 @@ deploy:
           externalZookeeper.servers: "zookeeper"
           persistence.size: 200Mi
           zookeeperConnectionTimeoutMs: 18000
+      - name: kafka-ui 
+        chartPath: kafka-topics-ui/kafka-topics-ui
+        remote: true
+        skipBuildDependencies: true
   kubectl:
     manifests:
-      # - monitoring/*.yaml
-      # - turn/k8s-*.yaml
-      # - prometheus/k8s-*.yaml
-      # - grafana/k8s-*.yaml
-      # - kafka/k8s-*.yaml
+      - monitoring/*.yaml
+      - turn/k8s-*.yaml
+      - prometheus/k8s-*.yaml
+      - grafana/k8s-*.yaml
       # - clickhouse/k8s-*.yaml
-      # - nginx/k8s-*.yaml
-      # - rabbitmq/k8s-*.yaml
+      - nginx/k8s-*.yaml
       - tarantool/k8s-*.yaml
       - rest_server/k8s-*.yaml
       - sfu_server/k8s-*.yaml

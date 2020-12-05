@@ -68,6 +68,16 @@ func (q *KafkaQueue) Write(msg []byte) error {
 }
 
 func (qp *KafkaQueueProvider) CreateQueue(name string) (Queue, error) {
+	topic := kafka.TopicConfig{
+		Topic:             name,
+		NumPartitions:     -1,
+		ReplicationFactor: -1,
+	}
+	err := qp.Connection.CreateTopics(topic)
+	if err != nil {
+		log.Println(err)
+		return nil, err
+	}
 	reader := kafka.NewReader(kafka.ReaderConfig{
 		Brokers:  []string{qp.URL},
 		GroupID:  name,
@@ -80,6 +90,7 @@ func (qp *KafkaQueueProvider) CreateQueue(name string) (Queue, error) {
 		Topic:    name,
 		Balancer: &kafka.LeastBytes{},
 	}
+	log.Println("Created queue " + name)
 	return &KafkaQueue{name, reader, writer}, nil
 }
 

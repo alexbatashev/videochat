@@ -10,15 +10,23 @@ const uuid = require('uuid');
 const socketIO = require('socket.io');
 const k8s = require('@kubernetes/client-node');
 const zookeeper = require('node-zookeeper-client');
-const kafka = require('kafka-node');
+const { Kafka } = require('kafkajs')
 const { rejects } = require('assert');
 
 const kc = new k8s.KubeConfig();
 kc.loadFromCluster();
 const k8sApi = kc.makeApiClient(k8s.CoreV1Api);
 
-const kafkaClient = new kafka.KafkaClient('kafka:2181');
 var kafkaProducer;
+
+const kafka = new Kafka({
+  clientId: process.env.NODE_POD_NAME,
+  brokers: ['kafka:9092'],
+  retry: {
+    initialRetryTime: 200,
+    retries: 500
+  }
+})
 
 run();
 
@@ -44,16 +52,8 @@ async function run() {
 }
 
 async function createKafkaProducer() {
-  return new Promise(async (resolve, reject) => {
-    const Producer = kafka.HighLevelProducer;
-    kafkaProducer = new Producer(kafkaClient);
-    kafkaProducer.on('ready', () => {
-      resolve();
-    });
-    kafkaProducer.on('error', function (err) {
-      reject(err);
-    });
-  });
+  kafkaProducer = kafka.producer();
+  kafkaProducer.connect();
 }
 
 async function createZookeeperConnection() {
@@ -172,19 +172,19 @@ async function createExpressApp() {
     };
     const payload = [{
       topic: sfuName,
-      messages: JSON.stringify(msg)
+      messages: [{ value: JSON.stringify(msg) }]
     }];
-    kafkaProducer.send(payload, (err, data) => {
-      if (err) {
-        console.log('[kafka-producer -> ' + kafka_topic + ']: broker update failed')
-      }
+    try {
+      kafkaProducer.send(payload, (err, data) => {
+        if (err) {
+          console.log('[kafka-producer -> ' + kafka_topic + ']: broker update failed')
+        }
 
-      console.log('[kafka-producer -> ' + kafka_topic + ']: broker update success');
-    });
-    // await ch.sendToQueue(sfuName, Buffer.from(JSON.stringify(msg)));
-    // res.status(200).json({
-    //   "id": id
-    // });
+        console.log('[kafka-producer -> ' + kafka_topic + ']: broker update success');
+      });
+    } catch (err) {
+      console.error(err);
+    }
   });
   router.get("/ice_servers", async (req, res, next) => {
     try {
@@ -226,20 +226,13 @@ async function createSocketConn() {
   io = socketIO.listen(httpServer);
   io.sockets.on('connection', async (socket) => {
     console.log("New socket connection");
-    function setPostHandshakeListeners(socket, sfuQueue, peerQueue) {
-      let consumer = new Consumer(
-        client,
-        [{ topic: peerQueue, partition: 0 }],
-        {
-          autoCommit: true,
-          fetchMaxWaitMs: 1000,
-          fetchMaxBytes: 1024 * 1024,
-          encoding: 'utf8',
-          fromOffset: false
-        }
-      );
-      consumer.on('message', async function (msg) { 
-          var msgObj = JSON.parse(msg);
+    async function setPostHandshakeListeners(socket, sfuQueue, peerQueue) {
+      let consumer = kafka.consumer({ groupId: peerQueue });
+      await consumer.connect();
+      await consumer.subscribe({ topic: peerQueue, fromBeginning: false });
+      consumer.run({
+        eachMessage: async ({ topic, partition, message }) => {
+          var msgObj = JSON.parse(message.value.toString());
           console.log(msgObj)
           if (msgObj.Command === "exchange_offer") {
             console.log(msgObj);
@@ -253,6 +246,7 @@ async function createSocketConn() {
               msgObj.Data
             ));
           }
+        }
       });
       consumer.on('error', function(err) {
         console.log('error', err);
@@ -270,7 +264,7 @@ async function createSocketConn() {
         };
         const payload = [{
           topic: sfuQueue,
-          messages: JSON.stringify(sfu_msg)
+          messages: [{ value: JSON.stringify(sfu_msg) }]
         }];
         kafkaProducer.send(payload, (err, data) => {
           if (err) {
@@ -293,7 +287,7 @@ async function createSocketConn() {
         };
         const payload = [{
           topic: sfuQueue,
-          messages: JSON.stringify(sfu_msg)
+          messages: [{ value: JSON.stringify(sfu_msg) }]
         }];
         kafkaProducer.send(payload, (err, data) => {
           if (err) {
@@ -316,7 +310,7 @@ async function createSocketConn() {
 
         const payload = [{
           topic: sfuQueue,
-          messages: JSON.stringify(sfu_msg)
+          messages: [{ value: JSON.stringify(sfu_msg) }]
         }];
         kafkaProducer.send(payload, (err, data) => {
           if (err) {
@@ -369,7 +363,7 @@ async function createSocketConn() {
       };
       const payload = [{
         topic: sfu_worker,
-        messages: JSON.stringify(worker_msg)
+        messages: [{ value: JSON.stringify(worker_msg) }]
       }];
       kafkaProducer.send(payload, (err, data) => {
         if (err) {
