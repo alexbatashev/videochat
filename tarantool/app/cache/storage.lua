@@ -1,5 +1,6 @@
 local json = require('json')
 local tnt_kafka = require('kafka')
+local uuid = require('uuid')
 
 local producer = nil
 
@@ -45,7 +46,7 @@ commitSession = function (id, duration)
   -- connection:publish('sessions_exchange', json.encode(t))
   local err = producer:produce_async({ -- don't wait until message will be delivired to kafka
     topic = "sessions",
-    key = id,
+    key = uuid.str(),
     value = json.encode(t) -- only strings allowed
   })
 end,
@@ -57,7 +58,7 @@ createRoom = function (id, sfuName)
   connection:publish('rooms_exchange', json.encode(room))
   local err = producer:produce_async({ -- don't wait until message will be delivired to kafka
     topic = "rooms",
-    key = id,
+    key = uuid.str(),
     value = json.encode(room) -- only strings allowed
   })
 end,
@@ -80,7 +81,7 @@ addRoomParticipant = function (roomId, sessionId)
   -- connection:publish('participants_exchange', json.encode(part))
   local err = producer:produce_async({ -- don't wait until message will be delivired to kafka
     topic = "participants",
-    key = sessionId,
+    key = uuid.str(),
     value = json.encode(part) -- only strings allowed
   })
 end,
