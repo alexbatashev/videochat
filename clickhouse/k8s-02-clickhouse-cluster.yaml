@@ -7,12 +7,35 @@ spec:
     zookeeper:
       nodes:
         - host: zookeeper
+    users:
+      videochat/password: "videochat"
+      videochat/access_management: 0
+    files:
+      rabbitmq.xml: |
+        <yandex>
+        <rabbitmq>
+            <username from-env="RABBITMQ_USER"/>
+            <password from-env="RABBITMQ_PASSWORD"/>
+        </rabbitmq>
+        </yandex>
     clusters:
-      - name: "shard1-repl1"
+      - name: "clcluster"
         layout:
-          shardsCount: 1
+          shardsCount: 2
           replicasCount: 2
+  defaults:
+    templates:
+      podTemplate: pod-template
+      dataVolumeClaimTemplate: default
   templates:
+    volumeClaimTemplates:
+        - name: default
+          spec:
+            accessModes:
+              - ReadWriteOnce
+            resources:
+              requests:
+                storage: 500Mi
     podTemplates:
       - name: pod-template
         spec:
@@ -20,9 +43,6 @@ spec:
             - name: clickhouse
               image: itcoursevideochat/clickhouse:latest
               imagePullPolicy: IfNotPresent
-              volumeMounts:
-                - name: clickhouse-config-volume
-                  mountPath: /etc/clickhouse-server/config.d
               env:
                 - name: RABBITMQ_USER
                   valueFrom:
@@ -34,10 +54,14 @@ spec:
                     secretKeyRef:
                       name: rabbitmq-default-user
                       key: password
-          volumes:
-          - name: clickhouse-config-volume
-            configMap:
-              name: clickhouse-config
-              items:
-              - key: config.xml
-                path: rabbitmq.xml
+                # - name: CLICKHOUSE_USER
+                #   value: videochat
+                # - name: CLICKHOUSE_PASSWORD
+                #   value: videochat
+          # volumes:
+          # - name: clickhouse-config-volume
+          #   configMap:
+          #     name: clickhouse-config
+          #     items:
+          #     - key: config.xml
+          #       path: rabbitmq.xml
