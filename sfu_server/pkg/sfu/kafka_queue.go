@@ -5,20 +5,22 @@ import (
 	"log"
 	"time"
 
+	"github.com/google/uuid"
 	kafka "github.com/segmentio/kafka-go"
 )
 
 type KafkaQueue struct {
-	Name      string
-	RealQueue amqp.Queue
-	Channel   *amqp.Channel
+	Name   string
+	Reader *kafka.Reader
+	Writer *kafka.Writer
 }
 
 type KafkaQueueProvider struct {
 	Connection *kafka.Conn
+	URL        string
 }
 
-func connectToKafka(uri string, clientId string) *kafka.Conn {
+func connectToKafka(uri string) *kafka.Conn {
 	for {
 		conn, err := kafka.Dial("tcp", uri)
 		if err == nil {
@@ -26,75 +28,61 @@ func connectToKafka(uri string, clientId string) *kafka.Conn {
 		}
 
 		log.Println(err)
-		log.Printf("Trying to reconnect to RabbitMQ at %s\n", uri)
+		log.Printf("Trying to reconnect to Kafka at %s\n", uri)
 		time.Sleep(500 * time.Millisecond)
 	}
 }
 
-func CreateRabbitMQProvider(url string) (*RabbitMQQueueProvider, error) {
-	conn := connectToRabbitMQ(url)
+func CreateKafkaProvider(url string) (*KafkaQueueProvider, error) {
+	conn := connectToKafka(url)
 
-	return &RabbitMQQueueProvider{conn}, nil
+	return &KafkaQueueProvider{conn, url}, nil
 }
 
-func (q *RabbitMQQueue) OnMessage(fn message) {
+func (q *KafkaQueue) OnMessage(fn message) {
 	go func() {
-		msgs, err := q.Channel.Consume(
-			q.Name, // queue
-			"",     // consumer
-			true,   // auto-ack
-			false,  // exclusive
-			false,  // no-local
-			false,  // no-wait
-			nil,    // args
-		)
-
-		if err != nil {
-			// TODO log error
-			return
-		}
-
-		for d := range msgs {
-			go fn(d.Body)
+		for {
+			msg, err := q.Reader.ReadMessage(context.Background())
+			if err != nil {
+				log.Println(err)
+			} else {
+				fn(msg.Value)
+			}
 		}
 	}()
 }
 
-func (q *RabbitMQQueue) Write(msg []byte) error {
-	err := q.Channel.Publish(
-		"",     // exchange name
-		q.Name, // queue name
-		true,   // mandatory
-		false,  // immediate
-		amqp.Publishing{
-			ContentType: "text/plain",
-			Body:        msg,
-		},
-	)
+func (q *KafkaQueue) Write(msg []byte) error {
+	keyUUID, err := uuid.NewRandom()
+	if err != nil {
+		log.Println(err)
+	}
+
+	keyStr := keyUUID.String()
+	kafkaMsg := kafka.Message{
+		Key:   []byte(keyStr),
+		Value: msg,
+	}
+	err = q.Writer.WriteMessages(context.Background(), kafkaMsg)
 	return err
 }
 
-func (qp *RabbitMQQueueProvider) CreateQueue(name string) (Queue, error) {
-	ch, err := qp.Connection.Channel()
-	if err != nil {
-		return nil, err
+func (qp *KafkaQueueProvider) CreateQueue(name string) (Queue, error) {
+	reader := kafka.NewReader(kafka.ReaderConfig{
+		Brokers:  []string{qp.URL},
+		GroupID:  name,
+		Topic:    name,
+		MinBytes: 10,   // 10KB
+		MaxBytes: 10e6, // 10MB
+	})
+	writer := &kafka.Writer{
+		Addr:     kafka.TCP(qp.URL),
+		Topic:    name,
+		Balancer: &kafka.LeastBytes{},
 	}
-
-	q, err := ch.QueueDeclare(
-		name,  // name
-		false, // durable
-		false, // delete when unused
-		false, // exclusive
-		false, // no-wait
-		nil,   // arguments
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	return &RabbitMQQueue{name, q, ch}, nil
+	return &KafkaQueue{name, reader, writer}, nil
 }
 
-func (qp RabbitMQQueueProvider) Close() {
+func (qp KafkaQueueProvider) Close() {
 	qp.Connection.Close()
 }

@@ -60,10 +60,10 @@ func main() {
 	}
 
 	rc := sfu.CreateWebRTCRoomController()
-	user := os.Getenv("RABBITMQ_USER") 
-	password := os.Getenv("RABBITMQ_PASSWORD") 	
-	url := "amqp://" + user + ":" + password + "@rabbitmq/"
-	qp, err := sfu.CreateRabbitMQProvider(url)
+	// user := os.Getenv("RABBITMQ_USER") 
+	// password := os.Getenv("RABBITMQ_PASSWORD") 	
+	// url := "amqp://" + user + ":" + password + "@rabbitmq/"
+	qp, err := sfu.CreateKafkaProvider("kafka:9092")
 	if err != nil {
 		panic(err)
 	}
