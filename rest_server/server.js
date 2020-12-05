@@ -33,8 +33,10 @@ var rabbitMQ;
 var hotDBConnection = new Tarantool({
   host: "tarantool-routers",
   port: 3301,
-  username: 'tarantool',
-  password: 'tarantoolpwd'
+  // username: 'tarantool',
+  // password: 'tarantoolpwd'
+  username: 'rest',
+  password: ''
 });
 
 async function run() {

@@ -27,6 +27,11 @@ local http_port = os.getenv("TARANTOOL_HTTP_PORT") or 8081
 
 local log = require('log')
 
+-- local user_name = "'" .. os.getenv('TARANTOOL_USER_NAME') .. "'"
+-- local user_password = "'" .. os.getenv('TARANTOOL_USER_PASSWORD') .. "'"
+-- local cmd = "set_credentials(" .. user_name .. "," .. user_password .. ")"
+-- local res = console:eval(cmd)
+
 --- [HACK] Probing node via membership
 local function dns_resolver(opts)
     opts = opts or {}

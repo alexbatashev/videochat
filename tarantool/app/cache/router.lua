@@ -46,7 +46,7 @@ end
 function getRoom(id)
   local router = cartridge.service_get('vshard-router').get()
   local bucket_id = router:bucket_id_mpcrc32(id)
-  local data, err = router:callr(bucket_id, 
+  local data, err = router:callrw(bucket_id, 
             'cache_storage.getRoom', 
             { id })
   -- local room = box.space.rooms:get{id}
@@ -57,7 +57,7 @@ end
 function addRoomParticipant(roomId, sessionId)
   local router = cartridge.service_get('vshard-router').get()
   local bucket_id = router:bucket_id_mpcrc32(roomId)
-  local data, err = router:callr(bucket_id, 
+  local data, err = router:callrw(bucket_id, 
             'cache_storage.addRoomParticipant', 
             { roomId, sessionId })
   -- box.begin()
@@ -85,7 +85,7 @@ end
 function removeRoomParticipant(roomId, sessionId)
   local router = cartridge.service_get('vshard-router').get()
   local bucket_id = router:bucket_id_mpcrc32(roomId)
-  local data, err = router:callr(bucket_id, 
+  local data, err = router:callrw(bucket_id, 
             'cache_storage.removeRoomParticipant', 
             { roomId, sessionId })
   -- box.begin()
@@ -111,6 +111,9 @@ end
 
 local function apply_config(conf, opts)
     if opts.is_master then
+      box.schema.user.create('rest', { if_not_exists = true })
+      box.schema.user.grant('rest', 'read,write,execute,create,drop','universe', {if_not_exists = true})
+      box.schema.user.grant('guest', 'read,write,execute,create,drop','universe', {if_not_exists = true})
         --
     end
 

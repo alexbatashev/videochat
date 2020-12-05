@@ -85,6 +85,8 @@ local function init(opts)
   local ok, emsg = connection:connect({host = 'rabbitmq', port = 1883})
   rawset(_G, 'cache_storage', cache_storage)
   if opts.is_master then
+    box.schema.user.create('rest', { if_not_exists = true })
+    box.schema.user.grant('rest', 'read,write,execute,create,drop','universe', {if_not_exists = true})
     if not box.space.users then
       box.schema.space.create('users')
       box.space.users:format({
@@ -129,6 +131,8 @@ local function init(opts)
     for name, _ in pairs(cache_storage) do
         box.schema.func.create('cache_storage.' .. name, { setuid = true, if_not_exists = true })
         box.schema.user.grant('admin', 'execute', 'function', 'cache_storage.' .. name, { if_not_exists = true })
+        box.schema.user.grant('rest', 'execute', 'function', 'cache_storage.' .. name, { if_not_exists = true })
+        box.schema.user.grant('guest', 'execute', 'function', 'cache_storage.' .. name, { if_not_exists = true })
     end
   end
   return true
