@@ -1,0 +1,6 @@
+replicaCount: 3
+zookeeper:
+  enabled: false
+externalZookeeper:
+  servers:
+    - zookeeper-client

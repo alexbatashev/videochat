@@ -10,7 +10,6 @@ dependencies = {
     'lua >= 5.1',
     'checks == 3.0.1-1',
     'cartridge == 1.0.0-1',
-    'mqtt',
     'prometheus'
 }
 

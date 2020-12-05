@@ -13,19 +13,6 @@ RUN yum install -y gcc make cmake git unzip
 COPY app ./
 RUN tarantoolctl rocks make app-scm-1.rockspec
 
-# RUN chmod 0755 /usr/local/lib64/libmosquitto.so && \
-#     chmod 0755 /usr/local/lib64/libmosquitto.so.1 && \
-#     chmod 0755 /usr/local/lib64/libmosquitto.so.1.6.2
-
-# RUN ln -s /usr/local/lib64/libmosquitto.so.1.6.2 /usr/local/lib/libmosquitto.so && \
-#     ln -s /usr/local/lib64/libmosquitto.so.1.6.2 /usr/local/lib/libmosquitto.so.1 && \
-#     ln -s /usr/local/lib64/libmosquitto.so.1.6.2 /usr/local/lib/libmosquitto.so.1.6.2
-
-
-# COPY tarantool_init.lua /usr/local/share/tarantool/tarantool_init.lua
-
-# CMD ["tarantool", "/usr/local/share/tarantool/tarantool_init.lua"]
-
 COPY ./docker-entrypoint.sh .
 
 ENTRYPOINT ["/opt/tarantool/docker-entrypoint.sh"]

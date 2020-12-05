@@ -1,7 +1,7 @@
-local mqtt = require('mqtt')
 local json = require('json')
+local tnt_kafka = require('kafka')
 
-local connection = nil
+local producer = nil
 
 local function stop()
   --
@@ -42,7 +42,12 @@ end,
 commitSession = function (id, duration)
   local t = box.space.sessions:update(id, {{'=', 'duration', duration}})
   -- TODO send session somewhere
-  connection:publish('sessions_exchange', json.encode(t))
+  -- connection:publish('sessions_exchange', json.encode(t))
+  local err = producer:produce_async({ -- don't wait until message will be delivired to kafka
+    topic = "sessions",
+    key = id,
+    value = json.encode(t) -- only strings allowed
+  })
 end,
 createRoom = function (id, sfuName)
   box.space.rooms:insert{id, {}, {}, 0, sfuName}
@@ -50,6 +55,11 @@ createRoom = function (id, sfuName)
   room['id'] = id
   room['sfu'] = 'sfu'
   connection:publish('rooms_exchange', json.encode(room))
+  local err = producer:produce_async({ -- don't wait until message will be delivired to kafka
+    topic = "rooms",
+    key = id,
+    value = json.encode(room) -- only strings allowed
+  })
 end,
 getRoom = function (id)
   local room = box.space.rooms:get{id}
@@ -67,7 +77,12 @@ addRoomParticipant = function (roomId, sessionId)
   local part = {}
   part['room_id'] = roomId
   part['session_id'] = sessionId
-  connection:publish('participants_exchange', json.encode(part))
+  -- connection:publish('participants_exchange', json.encode(part))
+  local err = producer:produce_async({ -- don't wait until message will be delivired to kafka
+    topic = "participants",
+    key = sessionId,
+    value = json.encode(part) -- only strings allowed
+  })
 end,
 removeRoomParticipant = function (roomId, sessionId)
   box.begin()
@@ -79,10 +94,24 @@ removeRoomParticipant = function (roomId, sessionId)
 end,
 }
 
+local error_callback = function(err)
+  log.error("got error: %s", err)
+end
+local log_callback = function(fac, str, level)
+  log.info("got log: %d - %s - %s", level, fac, str)
+end
+
 local function init(opts)
-  connection = mqtt.new()
-  connection:login_set('guest', 'guest')
-  local ok, emsg = connection:connect({host = 'rabbitmq', port = 1883})
+  local err = nil
+  producer, err = tnt_kafka.Producer.create({
+    brokers = "kafka:9092", -- brokers for bootstrap
+    options = {}, -- options for librdkafka
+    error_callback = error_callback, -- optional callback for errors
+    log_callback = log_callback, -- optional callback for logs and debug messages
+    default_topic_options = {
+        ["partitioner"] = "murmur2_random",
+    }, -- optional default topic options
+  })
   rawset(_G, 'cache_storage', cache_storage)
   if opts.is_master then
     box.schema.user.create('rest', { if_not_exists = true })

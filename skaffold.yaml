@@ -2,33 +2,54 @@ apiVersion: skaffold/v2beta10
 kind: Config
 build:
   artifacts:
-    - image: itcoursevideochat/clickhouse
-      context: clickhouse
-    - image: itcoursevideochat/grafana
-      context: grafana
-    - image: itcoursevideochat/nginx
-      context: nginx
-    - image: itcoursevideochat/prometheus
-      context: prometheus
-    - image: itcoursevideochat/rest
-      context: rest_server
-    - image: itcoursevideochat/sfu
-      context: sfu_server
+#     - image: itcoursevideochat/clickhouse
+#       context: clickhouse
+#     - image: itcoursevideochat/grafana
+#       context: grafana
+#     - image: itcoursevideochat/nginx
+#       context: nginx
+#     - image: itcoursevideochat/prometheus
+#       context: prometheus
+#     - image: itcoursevideochat/rest
+#       context: rest_server
+#     - image: itcoursevideochat/sfu
+#       context: sfu_server
     - image: itcoursevideochat/tarantool
       context: tarantool
-    - image: itcoursevideochat/turn
-      context: turn
+    # - image: itcoursevideochat/turn
+    #   context: turn
 deploy:
+  helm:
+    releases:
+      - name: zookeeper 
+        chartPath: bitnami/zookeeper
+        remote: true
+        skipBuildDependencies: true
+        setValues:
+          metrics.enabled: true
+          replicaCount: 2
+          persistence.size: 200Mi
+      - name: kafka
+        chartPath: bitnami/kafka
+        remote: true
+        skipBuildDependencies: true
+        setValues:
+          metrics.enabled: true
+          replicaCount: 2
+          zookeeper.enabled: false
+          externalZookeeper.servers: "zookeeper"
+          persistence.size: 200Mi
+          zookeeperConnectionTimeoutMs: 18000
   kubectl:
     manifests:
-      - monitoring/*.yaml
-      - turn/k8s-*.yaml
-      - prometheus/k8s-*.yaml
-      - grafana/k8s-*.yaml
-      - zookeeper/k8s-*.yaml
-      - clickhouse/k8s-*.yaml
-      - nginx/k8s-*.yaml
-      - rabbitmq/k8s-*.yaml
+      # - monitoring/*.yaml
+      # - turn/k8s-*.yaml
+      # - prometheus/k8s-*.yaml
+      # - grafana/k8s-*.yaml
+      # - kafka/k8s-*.yaml
+      # - clickhouse/k8s-*.yaml
+      # - nginx/k8s-*.yaml
+      # - rabbitmq/k8s-*.yaml
       - tarantool/k8s-*.yaml
-      - rest_server/k8s-*.yaml
-      - sfu_server/k8s-*.yaml
+      # - rest_server/k8s-*.yaml
+      # - sfu_server/k8s-*.yaml
