@@ -112,8 +112,8 @@ end
 local function apply_config(conf, opts)
     if opts.is_master then
       box.schema.user.create('rest', { if_not_exists = true })
-      box.schema.user.grant('rest', 'read,write,execute,create,drop','universe', {if_not_exists = true})
-      box.schema.user.grant('guest', 'read,write,execute,create,drop','universe', {if_not_exists = true})
+      box.schema.user.grant('rest', 'read,write,execute,create,drop','universe', nil, {if_not_exists = true})
+      box.schema.user.grant('guest', 'read,write,execute,create,drop','universe', nil, {if_not_exists = true})
         --
     end
 

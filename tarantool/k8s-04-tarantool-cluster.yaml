@@ -157,7 +157,7 @@ metadata:
   annotations:
     tarantool.io/rolesToAssign: '["storage"]'
 spec:
-  replicas: 1
+  replicas: 3
   serviceName: storage
   selector:
     matchLabels:
