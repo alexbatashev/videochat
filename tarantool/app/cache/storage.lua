@@ -86,7 +86,7 @@ local function init(opts)
   rawset(_G, 'cache_storage', cache_storage)
   if opts.is_master then
     box.schema.user.create('rest', { if_not_exists = true })
-    box.schema.user.grant('rest', 'read,write,execute,create,drop','universe', {if_not_exists = true})
+    box.schema.user.grant('rest', 'read,write,execute,create,drop','universe', nil, {if_not_exists = true})
     if not box.space.users then
       box.schema.space.create('users')
       box.space.users:format({
