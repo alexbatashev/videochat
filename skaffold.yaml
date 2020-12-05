@@ -10,8 +10,8 @@ build:
 #       context: nginx
 #     - image: itcoursevideochat/prometheus
 #       context: prometheus
-#     - image: itcoursevideochat/rest
-#       context: rest_server
+    - image: itcoursevideochat/rest
+      context: rest_server
 #     - image: itcoursevideochat/sfu
 #       context: sfu_server
     - image: itcoursevideochat/tarantool
@@ -51,5 +51,5 @@ deploy:
       # - nginx/k8s-*.yaml
       # - rabbitmq/k8s-*.yaml
       - tarantool/k8s-*.yaml
-      # - rest_server/k8s-*.yaml
+      - rest_server/k8s-*.yaml
       # - sfu_server/k8s-*.yaml

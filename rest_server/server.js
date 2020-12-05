@@ -8,14 +8,17 @@ const express = require('express');
 const Tarantool = require('tarantool-driver');
 const uuid = require('uuid');
 const socketIO = require('socket.io');
-const amqp = require('amqplib');
-const { exit } = require('process');
 const k8s = require('@kubernetes/client-node');
 const zookeeper = require('node-zookeeper-client');
+const kafka = require('kafka-node');
+const { rejects } = require('assert');
 
 const kc = new k8s.KubeConfig();
 kc.loadFromCluster();
 const k8sApi = kc.makeApiClient(k8s.CoreV1Api);
+
+const kafkaClient = new kafka.KafkaClient('kafka:2181');
+var kafkaProducer;
 
 run();
 
@@ -25,26 +28,32 @@ var socketConn;
 var io;
 var zkClient;
 
-// TODO should this be global?
-var ch = null;
-
-var rabbitMQ;
-
 var hotDBConnection = new Tarantool({
   host: "tarantool-routers",
   port: 3301,
-  // username: 'tarantool',
-  // password: 'tarantoolpwd'
   username: 'rest',
   password: ''
 });
 
 async function run() {
+  await createKafkaProducer();
   await createZookeeperConnection();
-  await createRabbitMQConnection();
   await createExpressApp();
   await createHTTPServer();
   await createSocketConn();
+}
+
+async function createKafkaProducer() {
+  return new Promise(async (resolve, reject) => {
+    const Producer = kafka.HighLevelProducer;
+    kafkaProducer = new Producer(kafkaClient);
+    kafkaProducer.on('ready', () => {
+      resolve();
+    });
+    kafkaProducer.on('error', function (err) {
+      reject(err);
+    });
+  });
 }
 
 async function createZookeeperConnection() {
@@ -155,21 +164,27 @@ async function createExpressApp() {
       console.error("Failed to create room with id " + id);
       console.error(err);
     }
-    ch = await rabbitMQ.createChannel();
-    await ch.assertQueue(sfuName, {
-      "durable": false,
-      "autoDelete": false
-    });
     var msg = {
       "command": "create_room",
       "roomId": id,
       "peerId": "",
       "data": ""
     };
-    await ch.sendToQueue(sfuName, Buffer.from(JSON.stringify(msg)));
-    res.status(200).json({
-      "id": id
+    const payload = [{
+      topic: sfuName,
+      messages: JSON.stringify(msg)
+    }];
+    kafkaProducer.send(payload, (err, data) => {
+      if (err) {
+        console.log('[kafka-producer -> ' + kafka_topic + ']: broker update failed')
+      }
+
+      console.log('[kafka-producer -> ' + kafka_topic + ']: broker update success');
     });
+    // await ch.sendToQueue(sfuName, Buffer.from(JSON.stringify(msg)));
+    // res.status(200).json({
+    //   "id": id
+    // });
   });
   router.get("/ice_servers", async (req, res, next) => {
     try {
@@ -207,32 +222,24 @@ async function createHTTPServer() {
   }).catch(() => { });
 }
 
-async function createRabbitMQConnection() {
-  return new Promise(async function (resolve, reject) {
-    const user = process.env.RABBITMQ_USER;
-    const pwd = process.env.RABBITMQ_PASSWORD;
-    while (true) {
-      try {
-        rabbitMQ = await amqp.connect('amqp://' + user + ':' + pwd + '@rabbitmq/');
-        break;
-      } catch (msg) {
-        console.warn(msg);
-        setTimeout(() => { }, 500);
-      }
-    }
-    resolve();
-  });
-}
-
 async function createSocketConn() {
   io = socketIO.listen(httpServer);
   io.sockets.on('connection', async (socket) => {
     console.log("New socket connection");
-    function setPostHandshakeListeners(socket, sfuChannel, sfuQueue, peerChannel, peerQueue) {
-      peerChannel.consume(peerQueue, function (msg) {
-        if (msg !== null) {
-          const msgString = msg.content.toString();
-          var msgObj = JSON.parse(msgString);
+    function setPostHandshakeListeners(socket, sfuQueue, peerQueue) {
+      let consumer = new Consumer(
+        client,
+        [{ topic: peerQueue, partition: 0 }],
+        {
+          autoCommit: true,
+          fetchMaxWaitMs: 1000,
+          fetchMaxBytes: 1024 * 1024,
+          encoding: 'utf8',
+          fromOffset: false
+        }
+      );
+      consumer.on('message', async function (msg) { 
+          var msgObj = JSON.parse(msg);
           console.log(msgObj)
           if (msgObj.Command === "exchange_offer") {
             console.log(msgObj);
@@ -240,63 +247,84 @@ async function createSocketConn() {
               "data": msgObj.Data,
               "kind": msgObj.OfferKind
             })));
-            peerChannel.ack(msg);
           } else if (msgObj.Command === "exchange_ice") {
             console.log(msgObj)
             socket.emit("exchange_ice", Buffer.from(
               msgObj.Data
             ));
           }
-        }
       });
+      consumer.on('error', function(err) {
+        console.log('error', err);
+      });
+
       socket.on("peer_answer", async (msg) => {
         console.log("Peer answered");
         // TODO send answer to SFU
         var data = JSON.parse(msg)
-        try {
-          await sfuChannel.sendToQueue(sfuQueue, Buffer.from(JSON.stringify(
-            {
-              "command": "remote_answer",
-              "roomId": data.roomId,
-              "peerId": data.uid,
-              "data": data.offer
-            }
-          )));
-        } catch (err) {
-          console.warn(err);
-        }
+        const sfu_msg = {
+          "command": "remote_answer",
+          "roomId": data.roomId,
+          "peerId": data.uid,
+          "data": data.offer
+        };
+        const payload = [{
+          topic: sfuQueue,
+          messages: JSON.stringify(sfu_msg)
+        }];
+        kafkaProducer.send(payload, (err, data) => {
+          if (err) {
+            console.log('[kafka-producer -> ' + kafka_topic + ']: broker update failed')
+          }
+
+          console.log('[kafka-producer -> ' + kafka_topic + ']: broker update success');
+        });
       });
       socket.on("exchange_ice", async (msg) => {
         console.log("A peer is trying to exchange ICE candidates");
         var data = JSON.parse(msg);
         console.log(data);
 
-        try {
-          await sfuChannel.sendToQueue(sfuQueue, Buffer.from(JSON.stringify(
-            {
-              "command": "exchange_ice",
-              "roomId": data.roomId,
-              "peerId": data.uid,
-              "data": data.ice
-            }
-          )));
-        } catch (err) {
-          console.warn(err);
-        }
+        const sfu_msg = {
+          "command": "exchange_ice",
+          "roomId": data.roomId,
+          "peerId": data.uid,
+          "data": data.ice
+        };
+        const payload = [{
+          topic: sfuQueue,
+          messages: JSON.stringify(sfu_msg)
+        }];
+        kafkaProducer.send(payload, (err, data) => {
+          if (err) {
+            console.log('[kafka-producer -> ' + kafka_topic + ']: broker update failed')
+          }
+
+          console.log('[kafka-producer -> ' + kafka_topic + ']: broker update success');
+        });
       });
       socket.on("leave_room", async (msg) => {
         console.log("Peer is leaving room");
         var data = JSON.parse(msg);
         await hotDBConnection.call('removeRoomParticipant', data.roomId, data.sessionId);
-        await sfuChannel.sendToQueue(sfuQueue, Buffer.from(JSON.stringify(
-          {
-            "command": "remove_peer",
-            "roomId": data.roomId,
-            "peerId": data.uid,
-            "data": ""
-          }
-        )));
+        const sfu_msg = {
+          "command": "remove_peer",
+          "roomId": data.roomId,
+          "peerId": data.uid,
+          "data": ""
+        };
 
+        const payload = [{
+          topic: sfuQueue,
+          messages: JSON.stringify(sfu_msg)
+        }];
+        kafkaProducer.send(payload, (err, data) => {
+          if (err) {
+            console.log('[kafka-producer -> ' + kafka_topic + ']: broker update failed')
+          }
+
+          console.log('[kafka-producer -> ' + kafka_topic + ']: broker update success');
+        });
         // TODO set proper duration
         await hotDBConnection.call('commitSession', data.sessionId, 0);
       });
@@ -330,27 +358,26 @@ async function createSocketConn() {
       console.log(room)
       const sfu_worker = room[0][4];
       console.log("SFU worker is " + sfu_worker)
-      let sfuChannel = await rabbitMQ.createChannel();
-      await sfuChannel.assertQueue(sfu_worker, {
-        "durable": false,
-        "autoDelete": false
-      });
-      let peerChannel = await rabbitMQ.createChannel();
-      await peerChannel.assertQueue(data.uid, {
-        "durable": false,
-        "autoDelete": false
-      });
 
-      setPostHandshakeListeners(socket, sfuChannel, sfu_worker, peerChannel, data.uid);
+      setPostHandshakeListeners(socket, sfu_worker, data.uid);
 
-      await sfuChannel.sendToQueue(sfu_worker, Buffer.from(JSON.stringify(
-        {
-          "command": "add_peer",
-          "roomId": data.roomId,
-          "peerId": data.uid,
-          "data": ""
+      const worker_msg = {
+        "command": "add_peer",
+        "roomId": data.roomId,
+        "peerId": data.uid,
+        "data": ""
+      };
+      const payload = [{
+        topic: sfu_worker,
+        messages: JSON.stringify(worker_msg)
+      }];
+      kafkaProducer.send(payload, (err, data) => {
+        if (err) {
+          console.log('[kafka-producer -> ' + kafka_topic + ']: broker update failed')
         }
-      )));
+
+        console.log('[kafka-producer -> ' + kafka_topic + ']: broker update success');
+      });
     });
   });
 }

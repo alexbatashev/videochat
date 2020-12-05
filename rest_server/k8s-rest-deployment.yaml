@@ -27,17 +27,6 @@ spec:
               cpu: "100m"
               memory: "64Mi"
           imagePullPolicy: IfNotPresent
-          env:
-            - name: RABBITMQ_USER
-              valueFrom:
-                secretKeyRef:
-                  name: rabbitmq-default-user
-                  key: username
-            - name: RABBITMQ_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: rabbitmq-default-user
-                  key: password
       restartPolicy: Always
       terminationGracePeriodSeconds: 30
       dnsPolicy: ClusterFirst
