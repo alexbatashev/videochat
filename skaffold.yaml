@@ -4,20 +4,20 @@ build:
   artifacts:
 #     - image: itcoursevideochat/clickhouse
 #       context: clickhouse
-#     - image: itcoursevideochat/grafana
-#       context: grafana
-#     - image: itcoursevideochat/nginx
-#       context: nginx
-#     - image: itcoursevideochat/prometheus
-#       context: prometheus
+    - image: itcoursevideochat/grafana
+      context: grafana
+    - image: itcoursevideochat/nginx
+      context: nginx
+    - image: itcoursevideochat/prometheus
+      context: prometheus
     - image: itcoursevideochat/rest
       context: rest_server
     - image: itcoursevideochat/sfu
       context: sfu_server
     - image: itcoursevideochat/tarantool
       context: tarantool
-    # - image: itcoursevideochat/turn
-    #   context: turn
+    - image: itcoursevideochat/turn
+      context: turn
 deploy:
   helm:
     releases:
@@ -35,7 +35,7 @@ deploy:
       - turn/k8s-*.yaml
       - kafka/k8s-*.yaml
       - yahoo-kafka-manager/k8s-*.yaml
-      # - prometheus/k8s-*.yaml
+      - prometheus/k8s-*.yaml
       - grafana/k8s-*.yaml
       # - clickhouse/k8s-*.yaml
       - nginx/k8s-*.yaml
