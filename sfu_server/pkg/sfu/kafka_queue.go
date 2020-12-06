@@ -2,7 +2,10 @@ package sfu
 
 import (
 	"context"
+	b64 "encoding/base64"
 	"log"
+	"net"
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -16,8 +19,9 @@ type KafkaQueue struct {
 }
 
 type KafkaQueueProvider struct {
-	Connection *kafka.Conn
-	URL        string
+	Connection           *kafka.Conn
+	URL                  string
+	ControllerConnection *kafka.Conn
 }
 
 func connectToKafka(uri string) *kafka.Conn {
@@ -36,7 +40,17 @@ func connectToKafka(uri string) *kafka.Conn {
 func CreateKafkaProvider(url string) (*KafkaQueueProvider, error) {
 	conn := connectToKafka(url)
 
-	return &KafkaQueueProvider{conn, url}, nil
+	controller, err := conn.Controller()
+	if err != nil {
+		return nil, err
+	}
+	var controllerConn *kafka.Conn
+	controllerConn, err = kafka.Dial("tcp", net.JoinHostPort(controller.Host, strconv.Itoa(controller.Port)))
+	if err != nil {
+		return nil, err
+	}
+
+	return &KafkaQueueProvider{conn, url, controllerConn}, nil
 }
 
 func (q *KafkaQueue) OnMessage(fn message) {
@@ -46,7 +60,11 @@ func (q *KafkaQueue) OnMessage(fn message) {
 			if err != nil {
 				log.Println(err)
 			} else {
-				fn(msg.Value)
+				value := msg.Value
+				res, err := b64.StdEncoding.DecodeString(string(value))
+				if err == nil {
+					fn(res)
+				}
 			}
 		}
 	}()
@@ -68,12 +86,14 @@ func (q *KafkaQueue) Write(msg []byte) error {
 }
 
 func (qp *KafkaQueueProvider) CreateQueue(name string) (Queue, error) {
-	topic := kafka.TopicConfig{
-		Topic:             name,
-		NumPartitions:     -1,
-		ReplicationFactor: -1,
+	topicConfigs := []kafka.TopicConfig{
+		kafka.TopicConfig{
+			Topic:             name,
+			NumPartitions:     1,
+			ReplicationFactor: 3,
+		},
 	}
-	err := qp.Connection.CreateTopics(topic)
+	err := qp.ControllerConnection.CreateTopics(topicConfigs...)
 	if err != nil {
 		log.Println(err)
 		return nil, err
@@ -95,5 +115,6 @@ func (qp *KafkaQueueProvider) CreateQueue(name string) (Queue, error) {
 }
 
 func (qp KafkaQueueProvider) Close() {
+	qp.ControllerConnection.Close()
 	qp.Connection.Close()
 }

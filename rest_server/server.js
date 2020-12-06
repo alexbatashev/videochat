@@ -10,23 +10,29 @@ const uuid = require('uuid');
 const socketIO = require('socket.io');
 const k8s = require('@kubernetes/client-node');
 const zookeeper = require('node-zookeeper-client');
-const { Kafka } = require('kafkajs')
-const { rejects } = require('assert');
+// const kafka = require('kafka-node')
+const { Queue, QueueProvider } = require('./queue');
 
 const kc = new k8s.KubeConfig();
 kc.loadFromCluster();
 const k8sApi = kc.makeApiClient(k8s.CoreV1Api);
 
-var kafkaProducer;
-
-const kafka = new Kafka({
-  clientId: process.env.NODE_POD_NAME,
-  brokers: ['kafka:9092'],
-  retry: {
-    initialRetryTime: 200,
-    retries: 500
-  }
-})
+var queueProvider;
+// var kafkaProducer;
+// var kafkaClient = new kafka.KafkaClient({
+//   kafkaHost: "http://kafka-bootstrap:2181",
+//   // sessionTimeout: 300,
+//   spinDelay: 100,
+//   retries: 200
+// });;
+// const kafka = new Kafka({
+//   clientId: process.env.NODE_POD_NAME,
+//   brokers: ['kafka-bootstrap:9092'],
+//   retry: {
+//     initialRetryTime: 200,
+//     retries: 500
+//   }
+// })
 
 run();
 
@@ -52,8 +58,8 @@ async function run() {
 }
 
 async function createKafkaProducer() {
-  kafkaProducer = kafka.producer();
-  kafkaProducer.connect();
+  queueProvider = new QueueProvider('kafka-bootstrap:9092', process.env.NODE_POD_NAME);
+  await queueProvider.init();
 }
 
 async function createZookeeperConnection() {
@@ -170,20 +176,16 @@ async function createExpressApp() {
       "peerId": "",
       "data": ""
     };
-    const payload = [{
-      topic: sfuName,
-      messages: [{ value: JSON.stringify(msg) }]
-    }];
-    try {
-      kafkaProducer.send(payload, (err, data) => {
-        if (err) {
-          console.log('[kafka-producer -> ' + kafka_topic + ']: broker update failed')
-        }
 
-        console.log('[kafka-producer -> ' + kafka_topic + ']: broker update success');
+    try {
+      const queue = await queueProvider.createQueue(sfuName);
+      await queue.send(msg);
+      res.status(200).json({
+        "id": id
       });
     } catch (err) {
       console.error(err);
+      res.status(500).send('Internal error');
     }
   });
   router.get("/ice_servers", async (req, res, next) => {
@@ -227,12 +229,8 @@ async function createSocketConn() {
   io.sockets.on('connection', async (socket) => {
     console.log("New socket connection");
     async function setPostHandshakeListeners(socket, sfuQueue, peerQueue) {
-      let consumer = kafka.consumer({ groupId: peerQueue });
-      await consumer.connect();
-      await consumer.subscribe({ topic: peerQueue, fromBeginning: false });
-      consumer.run({
-        eachMessage: async ({ topic, partition, message }) => {
-          var msgObj = JSON.parse(message.value.toString());
+      await peerQueue.receive(async (msg) => {
+          var msgObj = JSON.parse(msg);
           console.log(msgObj)
           if (msgObj.Command === "exchange_offer") {
             console.log(msgObj);
@@ -246,10 +244,6 @@ async function createSocketConn() {
               msgObj.Data
             ));
           }
-        }
-      });
-      consumer.on('error', function(err) {
-        console.log('error', err);
       });
 
       socket.on("peer_answer", async (msg) => {
@@ -262,17 +256,7 @@ async function createSocketConn() {
           "peerId": data.uid,
           "data": data.offer
         };
-        const payload = [{
-          topic: sfuQueue,
-          messages: [{ value: JSON.stringify(sfu_msg) }]
-        }];
-        kafkaProducer.send(payload, (err, data) => {
-          if (err) {
-            console.log('[kafka-producer -> ' + kafka_topic + ']: broker update failed')
-          }
-
-          console.log('[kafka-producer -> ' + kafka_topic + ']: broker update success');
-        });
+        await sfuQueue.send(sfu_msg);
       });
       socket.on("exchange_ice", async (msg) => {
         console.log("A peer is trying to exchange ICE candidates");
@@ -285,17 +269,7 @@ async function createSocketConn() {
           "peerId": data.uid,
           "data": data.ice
         };
-        const payload = [{
-          topic: sfuQueue,
-          messages: [{ value: JSON.stringify(sfu_msg) }]
-        }];
-        kafkaProducer.send(payload, (err, data) => {
-          if (err) {
-            console.log('[kafka-producer -> ' + kafka_topic + ']: broker update failed')
-          }
-
-          console.log('[kafka-producer -> ' + kafka_topic + ']: broker update success');
-        });
+        sfuQueue.send(sfu_msg);
       });
       socket.on("leave_room", async (msg) => {
         console.log("Peer is leaving room");
@@ -308,17 +282,7 @@ async function createSocketConn() {
           "data": ""
         };
 
-        const payload = [{
-          topic: sfuQueue,
-          messages: [{ value: JSON.stringify(sfu_msg) }]
-        }];
-        kafkaProducer.send(payload, (err, data) => {
-          if (err) {
-            console.log('[kafka-producer -> ' + kafka_topic + ']: broker update failed')
-          }
-
-          console.log('[kafka-producer -> ' + kafka_topic + ']: broker update success');
-        });
+        await sfuQueue.send(sfu_msg);
         // TODO set proper duration
         await hotDBConnection.call('commitSession', data.sessionId, 0);
       });
@@ -353,25 +317,20 @@ async function createSocketConn() {
       const sfu_worker = room[0][4];
       console.log("SFU worker is " + sfu_worker)
 
-      setPostHandshakeListeners(socket, sfu_worker, data.uid);
-
       const worker_msg = {
         "command": "add_peer",
         "roomId": data.roomId,
         "peerId": data.uid,
         "data": ""
       };
-      const payload = [{
-        topic: sfu_worker,
-        messages: [{ value: JSON.stringify(worker_msg) }]
-      }];
-      kafkaProducer.send(payload, (err, data) => {
-        if (err) {
-          console.log('[kafka-producer -> ' + kafka_topic + ']: broker update failed')
-        }
-
-        console.log('[kafka-producer -> ' + kafka_topic + ']: broker update success');
-      });
+      try {
+        const sfuQueue = await queueProvider.createQueue(sfu_worker);
+        const peerQueue = await queueProvider.createQueue(data.uid);
+        await sfuQueue.send(worker_msg);
+        setPostHandshakeListeners(socket, sfuQueue, peerQueue);
+      } catch (err) {
+        console.error(err);
+      }
     });
   });
 }

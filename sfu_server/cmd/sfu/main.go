@@ -63,7 +63,7 @@ func main() {
 	// user := os.Getenv("RABBITMQ_USER") 
 	// password := os.Getenv("RABBITMQ_PASSWORD") 	
 	// url := "amqp://" + user + ":" + password + "@rabbitmq/"
-	qp, err := sfu.CreateKafkaProvider("kafka:9092")
+	qp, err := sfu.CreateKafkaProvider("kafka-bootstrap:9092")
 	if err != nil {
 		panic(err)
 	}

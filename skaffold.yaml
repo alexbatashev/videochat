@@ -29,26 +29,13 @@ deploy:
           metrics.enabled: true
           replicaCount: 2
           persistence.size: 200Mi
-      - name: kafka
-        chartPath: bitnami/kafka
-        remote: true
-        skipBuildDependencies: true
-        setValues:
-          metrics.enabled: true
-          replicaCount: 2
-          zookeeper.enabled: false
-          externalZookeeper.servers: "zookeeper"
-          persistence.size: 200Mi
-          zookeeperConnectionTimeoutMs: 18000
-      - name: kafka-ui 
-        chartPath: kafka-topics-ui/kafka-topics-ui
-        remote: true
-        skipBuildDependencies: true
   kubectl:
     manifests:
       - monitoring/*.yaml
       - turn/k8s-*.yaml
-      - prometheus/k8s-*.yaml
+      - kafka/k8s-*.yaml
+      - yahoo-kafka-manager/k8s-*.yaml
+      # - prometheus/k8s-*.yaml
       - grafana/k8s-*.yaml
       # - clickhouse/k8s-*.yaml
       - nginx/k8s-*.yaml
