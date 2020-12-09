@@ -22,9 +22,12 @@ class Queue {
 
   async receive(cb) {
     this.receive_cb = cb;
-    await this.consumer.subscribe({ topic: this.topic, fromBeginning: false });
+    await this.consumer.connect();
+    await this.consumer.subscribe({ topic: this.topic, fromBeginning: true });
     await this.consumer.run({
       eachMessage: async ({ topic, partition, message }) => {
+        console.log("Received a message")
+        console.log(message)
         if (topic === this.topic) {
           await cb(message.value);
         }

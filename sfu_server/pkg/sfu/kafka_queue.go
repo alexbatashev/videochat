@@ -81,7 +81,19 @@ func (q *KafkaQueue) Write(msg []byte) error {
 		Key:   []byte(keyStr),
 		Value: msg,
 	}
-	err = q.Writer.WriteMessages(context.Background(), kafkaMsg)
+	log.Println("Sending a message!")
+	retryCounter := 0
+	for {
+		err = q.Writer.WriteMessages(context.Background(), kafkaMsg)
+		if err == nil || retryCounter == 50 {
+			break
+		}
+		if err != nil {
+			log.Println(err)
+		}
+		retryCounter++
+		time.Sleep(20 * time.Millisecond)
+	}
 	return err
 }
 
@@ -98,17 +110,25 @@ func (qp *KafkaQueueProvider) CreateQueue(name string) (Queue, error) {
 		log.Println(err)
 		return nil, err
 	}
+	var brokers []string
+	goBrokers, err := qp.Connection.Brokers()
+	for _, b := range goBrokers {
+		bStr := b.Host + ":" + strconv.Itoa(b.Port)
+		brokers = append(brokers, bStr)
+	}
 	reader := kafka.NewReader(kafka.ReaderConfig{
-		Brokers:  []string{qp.URL},
+		Brokers:  brokers,
 		GroupID:  name,
 		Topic:    name,
 		MinBytes: 10,   // 10KB
 		MaxBytes: 10e6, // 10MB
 	})
 	writer := &kafka.Writer{
-		Addr:     kafka.TCP(qp.URL),
-		Topic:    name,
-		Balancer: &kafka.LeastBytes{},
+		Addr:      kafka.TCP(brokers[0]),
+		Topic:     name,
+		BatchSize: 1,
+		RequiredAcks: kafka.RequireAll,
+		MaxAttempts: 500,
 	}
 	log.Println("Created queue " + name)
 	return &KafkaQueue{name, reader, writer}, nil
