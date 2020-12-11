@@ -89,6 +89,21 @@ getRoom = function (id)
   return room
 end,
 addRoomParticipant = function (roomId, sessionId)
+  local part = {}
+  part['room_id'] = roomId
+  part['session_id'] = sessionId
+  log.info(json.encode(part))
+  local message = json.encode(part)
+  local err = producer:produce({ -- don't wait until message will be delivired to kafka
+    topic = "participants",
+    key = uuid.str(),
+    value = message
+  })
+  if err ~= nil then
+    log.warn(string.format("got error '%s' while sending value '%s'", err, message))
+  else
+    log.info(string.format("successfully sent value '%s'", message))
+  end
   box.begin()
   local record = box.space.rooms:get({roomId})
   local participants = record['participants']
@@ -97,23 +112,6 @@ addRoomParticipant = function (roomId, sessionId)
   table.insert(active_participants, sessionId)
   box.space.rooms:update({roomId}, {{'=', 'participants', participants}, {'=', 'active_participants', active_participants}, {'+', 'active_count', 1}})
   box.commit()
-  local part = {}
-  part['room_id'] = roomId
-  part['session_id'] = sessionId
-  log.info(json.encode(part))
-  local message = json.encod(part)
-  local err = producer:produce({ -- don't wait until message will be delivired to kafka
-    topic = "participants",
-    key = uuid.str(),
-    -- value = '{ "room_id": "' .. roomId .. '", "session_id": "' .. sessionId .. '"}' -- hacky hack
-    -- value = roomId .. ',' .. sessionId
-    value = message
-  })
-  if err ~= nil then
-    log.warn(string.format("got error '%s' while sending value '%s'", err, message))
-  else
-    log.info(string.format("successfully sent value '%s'", message))
-  end
 end,
 removeRoomParticipant = function (roomId, sessionId)
   box.begin()
