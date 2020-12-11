@@ -92,7 +92,7 @@ func (q *KafkaQueue) Write(msg []byte) error {
 			log.Println(err)
 		}
 		retryCounter++
-		time.Sleep(20 * time.Millisecond)
+		time.Sleep(40 * time.Millisecond)
 	}
 	return err
 }

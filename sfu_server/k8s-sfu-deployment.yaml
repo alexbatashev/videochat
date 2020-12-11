@@ -16,8 +16,11 @@ spec:
         - name: sfu
           image: 'itcoursevideochat/sfu:latest'
           resources:
+            requestsi:
+              memory: "64Mi"
+              cpu: "50m"
             limits:
-              cpu: "250m"
+              cpu: "150m"
               memory: "256Mi"
           imagePullPolicy: IfNotPresent
           env:

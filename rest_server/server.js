@@ -10,7 +10,6 @@ const uuid = require('uuid');
 const socketIO = require('socket.io');
 const k8s = require('@kubernetes/client-node');
 const zookeeper = require('node-zookeeper-client');
-// const kafka = require('kafka-node')
 const { Queue, QueueProvider } = require('./queue');
 
 const kc = new k8s.KubeConfig();

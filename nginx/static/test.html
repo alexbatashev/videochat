@@ -16,39 +16,22 @@
     function onTrack(track, stream) {
     }
 
+    function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
     document.getElementById("start_btn").onclick = async () => {
       for (i = 0; i < 15; i++) {
         const id = await createUser("Sample");
-        const roomHandle = await createRoom(id);
-        await roomHandle.join(id, onTrack);
+        sleep(1200);
+        const roomHandle = await createRoom(id.id);
+        await roomHandle.join(id.id, onTrack);
         clients.push({
-          client: id,
+          client: id.id,
           room: roomHandle
         });
+        sleep(500);
       }
-      // var aliceId = await createUser("Alice");
-      // var aliceRoomHandle = await createRoom(aliceId.id);
-      // clients.push({
-      //   client: aliceId.id,
-      //   room: aliceRoomHandle
-      // });
-      // await aliceRoomHandle.join(aliceId.id, onTrack);
-
-      // var bobId = await createUser("Bob");
-      // var bobRoomHandle = createRoomWithId(aliceRoomHandle.getId())
-      // clients.push({
-      //   client: bobId.id,
-      //   room: bobRoomHandle
-      // });
-      // await bobRoomHandle.join(bobId.id, onTrack)
-
-      // var melId = await createUser("Mel");
-      // var melRoomHandle = createRoomWithId(aliceRoomHandle.getId())
-      // clients.push({
-      //   client: melId.id,
-      //   room: melRoomHandle
-      // });
-      // await melRoomHandle.join(melId.id, onTrack)
     }
 
     document.getElementById("stop_btn").onclick = () => {
@@ -58,4 +41,3 @@
 </body>
 
 </html>
-
