@@ -11,6 +11,7 @@ spec:
       image: 'itcoursevideochat/grafana:latest'
       ports:
         - containerPort: 3000
+      imagePullPolicy: IfNotPresent
   restartPolicy: Always
   enableServiceLinks: true
 status: {}

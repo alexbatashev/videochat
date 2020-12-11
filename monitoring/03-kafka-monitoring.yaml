@@ -1,0 +1,32 @@
+kind: Service
+apiVersion: v1
+metadata:
+  name: kafka-monitoring
+  labels:
+    k8s-app: kafka-monitoring
+spec:
+  selector:
+    app: kafka
+  ports:
+  - name: prometheus
+    port: 5556
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: kafka-monitoring
+  namespace: monitoring 
+  labels:
+    target: prometheus
+spec:
+  selector:
+    matchLabels:
+      k8s-app: kafka-monitoring
+  endpoints:
+  - port: prometheus
+    interval: 3s
+    path: /metrics
+  namespaceSelector:
+    matchNames:
+      - default
+

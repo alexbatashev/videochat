@@ -2,6 +2,7 @@ kind: Service
 apiVersion: v1
 metadata:
   name: grafana
+  namespace: monitoring
 spec:
   ports:
     - name: tcp-3000-3000

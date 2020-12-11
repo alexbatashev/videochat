@@ -17,29 +17,38 @@
     }
 
     document.getElementById("start_btn").onclick = async () => {
-      var aliceId = await createUser("Alice");
-      var aliceRoomHandle = await createRoom(aliceId.id);
-      clients.push({
-        client: aliceId.id,
-        room: aliceRoomHandle
-      });
-      await aliceRoomHandle.join(aliceId.id, onTrack);
+      for (i = 0; i < 15; i++) {
+        const id = await createUser("Sample");
+        const roomHandle = await createRoom(id);
+        await roomHandle.join(id, onTrack);
+        clients.push({
+          client: id,
+          room: roomHandle
+        });
+      }
+      // var aliceId = await createUser("Alice");
+      // var aliceRoomHandle = await createRoom(aliceId.id);
+      // clients.push({
+      //   client: aliceId.id,
+      //   room: aliceRoomHandle
+      // });
+      // await aliceRoomHandle.join(aliceId.id, onTrack);
 
-      var bobId = await createUser("Bob");
-      var bobRoomHandle = createRoomWithId(aliceRoomHandle.getId())
-      clients.push({
-        client: bobId.id,
-        room: bobRoomHandle
-      });
-      await bobRoomHandle.join(bobId.id, onTrack)
+      // var bobId = await createUser("Bob");
+      // var bobRoomHandle = createRoomWithId(aliceRoomHandle.getId())
+      // clients.push({
+      //   client: bobId.id,
+      //   room: bobRoomHandle
+      // });
+      // await bobRoomHandle.join(bobId.id, onTrack)
 
-      var melId = await createUser("Mel");
-      var melRoomHandle = createRoomWithId(aliceRoomHandle.getId())
-      clients.push({
-        client: melId.id,
-        room: melRoomHandle
-      });
-      await melRoomHandle.join(melId.id, onTrack)
+      // var melId = await createUser("Mel");
+      // var melRoomHandle = createRoomWithId(aliceRoomHandle.getId())
+      // clients.push({
+      //   client: melId.id,
+      //   room: melRoomHandle
+      // });
+      // await melRoomHandle.join(melId.id, onTrack)
     }
 
     document.getElementById("stop_btn").onclick = () => {
