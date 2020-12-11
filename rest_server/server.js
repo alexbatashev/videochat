@@ -125,6 +125,20 @@ async function createExpressApp() {
 
   var router = express.Router()
 
+  router.get('/loadtest', async (req, res, next) => {
+    function sleep(ms) {
+      return new Promise((resolve) => {
+        setTimeout(resolve, ms);
+      });
+    } 
+    await sleep(20);
+    // let foo = 1;
+    // for (i = 2; i < 1000; i++) {
+    //   foo *= i;
+    // }
+    res.status(200).send("Ok");
+  });
+
   router.post('/user/create', async (req, res, next) => {
     const id = uuid.v4();
     console.log(id);

@@ -1,13 +1,25 @@
-apiVersion: autoscaling/v1
+apiVersion: autoscaling/v2beta2
 kind: HorizontalPodAutoscaler
 metadata:
   name: rest
   namespace: default
 spec:
   maxReplicas: 10
-  minReplicas: 1
+  minReplicas: 2
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
     name: rest
-  targetCPUUtilizationPercentage: 30
+  metrics: 
+  - type: Resource
+    resource:
+      name: memory 
+      target:
+        type: Utilization 
+        averageUtilization: 60
+  - type: Resource
+    resource:
+      name: cpu 
+      target:
+        type: Utilization 
+        averageUtilization: 60

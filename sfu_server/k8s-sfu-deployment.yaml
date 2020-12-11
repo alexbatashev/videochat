@@ -16,7 +16,7 @@ spec:
         - name: sfu
           image: 'itcoursevideochat/sfu:latest'
           resources:
-            requestsi:
+            requests:
               memory: "64Mi"
               cpu: "50m"
             limits:

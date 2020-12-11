@@ -1,4 +1,4 @@
-apiVersion: autoscaling/v1
+apiVersion: autoscaling/v2beta2
 kind: HorizontalPodAutoscaler
 metadata:
   name: nginx
@@ -10,5 +10,16 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: nginx
-  targetCPUUtilizationPercentage: 30
-
+  metrics: 
+  - type: Resource
+    resource:
+      name: memory 
+      target:
+        type: Utilization 
+        averageValue: 80m 
+  - type: Resource
+    resource:
+      name: cpu 
+      target:
+        type: Utilization 
+        averageUtilization: 60
