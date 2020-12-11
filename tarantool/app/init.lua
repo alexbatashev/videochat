@@ -91,7 +91,8 @@ local ok, err = cartridge.cfg({
         'cache.router',
         'cache.storage',
     },
-}, {memtx_memory = memtx_memory})
+}, {memtx_memory = memtx_memory,
+    log_level = 6})
 
 assert(ok, tostring(err))
 

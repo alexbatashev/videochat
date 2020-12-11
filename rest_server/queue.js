@@ -39,7 +39,7 @@ class Queue {
     await this.receive_cb(msg);
   }
 }
-//
+
 class QueueProvider {
   constructor(url, clientId) {
     this.kafka = new Kafka({
@@ -65,6 +65,21 @@ class QueueProvider {
     const consumer = this.kafka.consumer({ groupId: this.clientId + "-" + name });
     const queue = new Queue(name, this.producer, consumer);
     return queue;
+  }
+
+  async assertQueue(name) {
+    const admin = this.kafka.admin();
+    await admin.connect();
+    await admin.createTopics({
+      validateOnly: false,
+      waitForLeaders: true,
+      timeout: 300,
+      topics: [{
+        topic: name,
+        replicationFactor: 3
+      }]
+    });
+    await admin.disconnect();
   }
 }
 

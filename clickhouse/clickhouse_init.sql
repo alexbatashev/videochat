@@ -12,31 +12,37 @@ create table sessions (
 ) engine = MergeTree()
   ORDER BY tuple() SETTINGS index_granularity = 8192;
 
-create table rooms_queue (id UUID, sfu String) engine = RabbitMQ SETTINGS rabbitmq_host_port = 'rabbitmq:5672',
-  rabbitmq_exchange_name = 'rooms_exchange',
-  rabbitmq_exchange_type = 'fanout',
-  rabbitmq_format = 'JSONEachRow',
-  rabbitmq_num_consumers = 5;
+create table rooms_queue (id UUID, sfu String) engine = Kafka()
+  SETTINGS 
+    kafka_broker_list = 'kafka-bootstrap:9092',
+    kafka_topic_list = 'rooms',
+    kafka_group_name = 'clickhouse',
+    kafka_format = 'JSONEachRow',
+    kafka_num_consumers = 4;
 
 create table sessions_queue (
   id UUID,
   start_time UInt64,
   duration UInt64,
   uid UUID
-) engine = RabbitMQ SETTINGS rabbitmq_host_port = 'rabbitmq:5672',
-  rabbitmq_exchange_name = 'sessions_exchange',
-  rabbitmq_exchange_type = 'fanout',
-  rabbitmq_format = 'JSONEachRow',
-  rabbitmq_num_consumers = 5;
+) engine = Kafka()
+  SETTINGS 
+    kafka_broker_list = 'kafka-bootstrap:9092',
+    kafka_topic_list = 'sessions',
+    kafka_group_name = 'clickhouse',
+    kafka_format = 'JSONEachRow',
+    kafka_num_consumers = 4;
 
 create table participants_queue (
   room_id UUID,
   session_id UUID
-) engine = RabbitMQ SETTINGS rabbitmq_host_port = 'rabbitmq:5672',
-  rabbitmq_exchange_name = 'participants_exchange',
-  rabbitmq_exchange_type = 'fanout',
-  rabbitmq_format = 'JSONEachRow',
-  rabbitmq_num_consumers = 5;
+) engine = Kafka()
+  SETTINGS 
+    kafka_broker_list = 'kafka-bootstrap:9092',
+    kafka_topic_list = 'participants',
+    kafka_group_name = 'clickhouse',
+    kafka_format = 'JSONEachRow',
+    kafka_num_consumers = 4;
 
 create MATERIALIZED VIEW room_consumer to rooms
     as select id, sfu from rooms_queue;

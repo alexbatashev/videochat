@@ -10,14 +10,6 @@ spec:
     users:
       videochat/password: "videochat"
       videochat/access_management: 0
-    files:
-      rabbitmq.xml: |
-        <yandex>
-        <rabbitmq>
-            <username from-env="RABBITMQ_USER"/>
-            <password from-env="RABBITMQ_PASSWORD"/>
-        </rabbitmq>
-        </yandex>
     clusters:
       - name: "clcluster"
         layout:
@@ -43,25 +35,3 @@ spec:
             - name: clickhouse
               image: itcoursevideochat/clickhouse:latest
               imagePullPolicy: IfNotPresent
-              env:
-                - name: RABBITMQ_USER
-                  valueFrom:
-                    secretKeyRef:
-                      name: rabbitmq-default-user
-                      key: username
-                - name: RABBITMQ_PASSWORD
-                  valueFrom:
-                    secretKeyRef:
-                      name: rabbitmq-default-user
-                      key: password
-                # - name: CLICKHOUSE_USER
-                #   value: videochat
-                # - name: CLICKHOUSE_PASSWORD
-                #   value: videochat
-          # volumes:
-          # - name: clickhouse-config-volume
-          #   configMap:
-          #     name: clickhouse-config
-          #     items:
-          #     - key: config.xml
-          #       path: rabbitmq.xml

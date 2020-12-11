@@ -1,0 +1,17 @@
+kind: Service
+apiVersion: v1
+metadata:
+  name: burrow
+spec:
+  selector:
+    app: burrow
+  ports:
+  - name: web
+    protocol: TCP
+    port: 80
+  - name: api
+    protocol: TCP
+    port: 8000
+  - name: prometheus
+    protocol: TCP
+    port: 8080

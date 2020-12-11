@@ -18,21 +18,6 @@ kc.loadFromCluster();
 const k8sApi = kc.makeApiClient(k8s.CoreV1Api);
 
 var queueProvider;
-// var kafkaProducer;
-// var kafkaClient = new kafka.KafkaClient({
-//   kafkaHost: "http://kafka-bootstrap:2181",
-//   // sessionTimeout: 300,
-//   spinDelay: 100,
-//   retries: 200
-// });;
-// const kafka = new Kafka({
-//   clientId: process.env.NODE_POD_NAME,
-//   brokers: ['kafka-bootstrap:9092'],
-//   retry: {
-//     initialRetryTime: 200,
-//     retries: 500
-//   }
-// })
 
 run();
 
@@ -148,6 +133,7 @@ async function createExpressApp() {
     console.log(req.body);
     try {
       await hotDBConnection.call('addUser', id, req.body.name);
+      await queueProvider.assertQueue(id);
       res.status(200).json({
         "id": id
       });

@@ -1,11 +1,18 @@
 local json = require('json')
 local tnt_kafka = require('kafka')
 local uuid = require('uuid')
+local os = require('os')
+local log = require('log')
 
 local producer = nil
 
 local function stop()
   --
+  local err = producer:close() -- always stop consumer to send all pending messages before app close
+    if err ~= nil then
+        print(err)
+        os.exit(1)
+    end
 end
 
 local function validate_config(conf_new, conf_old)
@@ -43,24 +50,39 @@ end,
 commitSession = function (id, duration)
   local t = box.space.sessions:update(id, {{'=', 'duration', duration}})
   -- TODO send session somewhere
-  -- connection:publish('sessions_exchange', json.encode(t))
-  local err = producer:produce_async({ -- don't wait until message will be delivired to kafka
+  print(json.encode(t))
+  local message = json.encode(t)
+  local err = producer:produce({ -- don't wait until message will be delivired to kafka
     topic = "sessions",
     key = uuid.str(),
-    value = json.encode(t) -- only strings allowed
+    value = message
   })
+  if err ~= nil then
+    print(string.format("got error '%s' while sending value '%s'", err, message))
+  else
+    print(string.format("successfully sent value '%s'", message))
+  end
 end,
 createRoom = function (id, sfuName)
-  box.space.rooms:insert{id, {}, {}, 0, sfuName}
   local room = {}
   room['id'] = id
-  room['sfu'] = 'sfu'
-  connection:publish('rooms_exchange', json.encode(room))
-  local err = producer:produce_async({ -- don't wait until message will be delivired to kafka
+  room['sfu'] = sfuName
+  log.info(json.encode(room))
+  local message = json.encode(room)
+  local err = producer:produce({ -- don't wait until message will be delivired to kafka
     topic = "rooms",
     key = uuid.str(),
-    value = json.encode(room) -- only strings allowed
+    -- value = id .. ',' .. sfuName -- hacky hack
+    value = message
   })
+  if err ~= nil then
+    log.warn(string.format("got error '%s' while sending value '%s'", err, message))
+    -- os.exit(1)
+  else
+    log.info(string.format("successfully sent value '%s'", message))
+    -- os.exit(10)
+  end
+  box.space.rooms:insert{id, {}, {}, 0, sfuName}
 end,
 getRoom = function (id)
   local room = box.space.rooms:get{id}
@@ -78,12 +100,20 @@ addRoomParticipant = function (roomId, sessionId)
   local part = {}
   part['room_id'] = roomId
   part['session_id'] = sessionId
-  -- connection:publish('participants_exchange', json.encode(part))
-  local err = producer:produce_async({ -- don't wait until message will be delivired to kafka
+  log.info(json.encode(part))
+  local message = json.encod(part)
+  local err = producer:produce({ -- don't wait until message will be delivired to kafka
     topic = "participants",
     key = uuid.str(),
-    value = json.encode(part) -- only strings allowed
+    -- value = '{ "room_id": "' .. roomId .. '", "session_id": "' .. sessionId .. '"}' -- hacky hack
+    -- value = roomId .. ',' .. sessionId
+    value = message
   })
+  if err ~= nil then
+    log.warn(string.format("got error '%s' while sending value '%s'", err, message))
+  else
+    log.info(string.format("successfully sent value '%s'", message))
+  end
 end,
 removeRoomParticipant = function (roomId, sessionId)
   box.begin()
@@ -105,14 +135,15 @@ end
 local function init(opts)
   local err = nil
   producer, err = tnt_kafka.Producer.create({
-    brokers = "kafka:9092", -- brokers for bootstrap
+    brokers = "kafka-bootstrap:9092", -- brokers for bootstrap
     options = {}, -- options for librdkafka
     error_callback = error_callback, -- optional callback for errors
-    log_callback = log_callback, -- optional callback for logs and debug messages
-    default_topic_options = {
-        ["partitioner"] = "murmur2_random",
-    }, -- optional default topic options
+    log_callback = log_callback -- optional callback for logs and debug messages
   })
+  if err ~= nil then
+    log.error(err)
+    os.exit(1)
+  end
   rawset(_G, 'cache_storage', cache_storage)
   if opts.is_master then
     box.schema.user.create('rest', { if_not_exists = true })

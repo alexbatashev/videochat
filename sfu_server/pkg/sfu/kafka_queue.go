@@ -63,7 +63,7 @@ func (q *KafkaQueue) OnMessage(fn message) {
 				value := msg.Value
 				res, err := b64.StdEncoding.DecodeString(string(value))
 				if err == nil {
-					fn(res)
+					go fn(res)
 				}
 			}
 		}

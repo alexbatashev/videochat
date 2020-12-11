@@ -1,0 +1,63 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: topics-create
+spec:
+  template:
+    spec:
+      containers:
+      - name: rooms 
+        image: solsson/kafka:native-cli@sha256:fbf29c59182fb87921c5199783d2d5796856ecbfe34a9c03eca658b3cf50f3c4
+        command:
+        - ./bin/kafka-topics.sh
+        - --zookeeper
+        -   zookeeper.default.svc.cluster.local:2181
+        - --create
+        - --if-not-exists
+        - --topic
+        -   rooms 
+        - --partitions
+        -   '12'
+        - --replication-factor
+        -   '3'
+        resources:
+          limits:
+            cpu: 100m
+            memory: 20Mi
+      - name: sessions 
+        image: solsson/kafka:native-cli@sha256:fbf29c59182fb87921c5199783d2d5796856ecbfe34a9c03eca658b3cf50f3c4
+        command:
+        - ./bin/kafka-topics.sh
+        - --zookeeper
+        -   zookeeper.default.svc.cluster.local:2181
+        - --create
+        - --if-not-exists
+        - --topic
+        -   sessions 
+        - --partitions
+        -   '12'
+        - --replication-factor
+        -   '3'
+        resources:
+          limits:
+            cpu: 100m
+            memory: 20Mi
+      - name: participants 
+        image: solsson/kafka:native-cli@sha256:fbf29c59182fb87921c5199783d2d5796856ecbfe34a9c03eca658b3cf50f3c4
+        command:
+        - ./bin/kafka-topics.sh
+        - --zookeeper
+        -   zookeeper.default.svc.cluster.local:2181
+        - --create
+        - --if-not-exists
+        - --topic
+        -   participants 
+        - --partitions
+        -   '12'
+        - --replication-factor
+        -   '3'
+        resources:
+          limits:
+            cpu: 100m
+            memory: 20Mi
+      restartPolicy: Never
