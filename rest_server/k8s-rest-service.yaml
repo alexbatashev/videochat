@@ -12,8 +12,5 @@ spec:
       targetPort: 3000
   selector:
     k8s-app: rest
+  sessionAffinity: None
   type: ClusterIP
-  sessionAffinity: "ClientIP" 
-status:
-  loadBalancer: {}
-

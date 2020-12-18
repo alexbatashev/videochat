@@ -13,6 +13,4 @@ spec:
   type: LoadBalancer
   sessionAffinity: None
   externalTrafficPolicy: Cluster
-status:
-  loadBalancer: {}
 
